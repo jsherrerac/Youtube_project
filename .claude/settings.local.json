@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\pygame\")",
+      "PowerShell(Move-Item \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\sine_from_circle.py\" \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\\\\sine_from_circle.py\")",
+      "PowerShell(Move-Item \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\media\" \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\\\\media\")"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+# Videos y renders de Manim (pesados)
+manim/media/
+
+# Cache de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Cache de Manim
+.cache/
+
+# Entornos virtuales
+venv/
+.env/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
