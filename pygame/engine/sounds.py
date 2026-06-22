@@ -23,16 +23,41 @@ def make_eat_sound() -> pygame.mixer.Sound:
 
 
 def make_wall_sound() -> pygame.mixer.Sound:
-    """Click mecánico — transiente de ruido + pequeño thump, como switch de teclado."""
-    dur = 0.055
+    """
+    'Bong' resonante satisfactorio: tono que baja de ~300 a 80 Hz + un cuerpo
+    bajo que da punch. Como golpear una campana o un balón inflado fuerte.
+    """
+    dur = 0.22
     t = np.linspace(0, dur, int(SR * dur), endpoint=False)
-    rng = np.random.default_rng(7)
-    # Click: ruido blanco con decay muy rápido
-    click = rng.standard_normal(len(t)) * np.exp(-t * 150)
-    # Thump: onda baja que da cuerpo al golpe
-    thump = 0.5 * np.sin(2 * np.pi * 120 * t) * np.exp(-t * 90)
-    tone = 0.38 * (click + thump)
-    return _to_sound(tone)
+    # Tono principal: frecuencia que cae exponencialmente (efecto 'pow')
+    freq = 280 * np.exp(-t * 8) + 80   # va de 360 Hz a ~80 Hz
+    phase = np.cumsum(freq / SR) * 2 * np.pi
+    body = np.sin(phase) * np.exp(-t * 14)
+    # Segunda parcial inarmónica para textura metálica/satisfactoria
+    freq2 = freq * 2.3
+    phase2 = np.cumsum(freq2 / SR) * 2 * np.pi
+    ring = 0.35 * np.sin(phase2) * np.exp(-t * 22)
+    # Transiente de ataque muy corto (da snap)
+    snap_len = int(SR * 0.008)
+    snap = np.zeros(len(t))
+    snap[:snap_len] = np.random.default_rng(11).standard_normal(snap_len) * np.exp(
+        -np.arange(snap_len) / snap_len * 8
+    )
+    tone = 0.55 * (body + ring) + 0.25 * snap
+    return _to_sound(tone.astype(np.float32))
+
+
+def make_melody_note(freq: float, duration: float = 0.18) -> pygame.mixer.Sound:
+    """Nota de melodía: sinusoide con ataque/decay suaves, idéntica a audio.py."""
+    t = np.linspace(0, duration, int(SR * duration), endpoint=False)
+    tone = 0.50 * np.sin(2 * np.pi * freq * t)
+    tone += 0.15 * np.sin(2 * np.pi * freq * 2 * t)  # 2a armónica
+    n_att = int(SR * 0.012)
+    n_rel = int(SR * 0.05)
+    env = np.ones(len(t))
+    env[:n_att] = np.linspace(0, 1, n_att)
+    env[-n_rel:] = np.linspace(1, 0, n_rel)
+    return _to_sound((tone * env).astype(np.float32))
 
 
 def _to_sound(arr: np.ndarray) -> pygame.mixer.Sound:

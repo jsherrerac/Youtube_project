@@ -1,6 +1,10 @@
 """
 Audio por eventos: durante el render se loguean colisiones (frame, tipo).
 Al terminar, genera una pista sintetizada y la múxea con moviepy v2.
+
+Tipos de evento soportados:
+  "eat"          -> bloop ascendente
+  "note:{freq}"  -> nota de melodía a la frecuencia dada (Hz)
 """
 
 import os
@@ -9,10 +13,23 @@ import numpy as np
 
 SAMPLE_RATE = 44100
 
-# Frecuencias y duraciones por tipo de evento
-_FREQ   = {"eat": 880,  "wall": 330, "done": 660}
-_LEN_S  = {"eat": 0.04, "wall": 0.09, "done": 0.35}
-_VOL    = {"eat": 0.25, "wall": 0.35, "done": 0.6}
+# Nombres de nota -> semitonos desde A4 (dentro de la misma octava)
+_NOTE_ST = {'C': -9, 'D': -7, 'E': -5, 'F': -4, 'G': -2, 'A': 0, 'B': 2}
+
+
+def note_to_freq(name: str) -> float:
+    """
+    Convierte nombre de nota ('E4', 'F#4', 'Bb4') a Hz.
+    Referencia: A4 = 440 Hz, temperamento igual: freq = 440 * 2^(semis/12).
+    """
+    i = 0
+    st = _NOTE_ST[name[i]]; i += 1
+    while i < len(name) and name[i] in ('#', 'b'):
+        st += 1 if name[i] == '#' else -1
+        i += 1
+    octave = int(name[i:])
+    semis_from_a4 = st + (octave - 4) * 12
+    return 440.0 * (2 ** (semis_from_a4 / 12))
 
 
 class AudioLog:
@@ -44,20 +61,49 @@ class AudioLog:
 def _synthesize(events, fps: int, duration: float) -> np.ndarray:
     n = int(SAMPLE_RATE * duration)
     audio = np.zeros(n, dtype=np.float32)
+    rng = np.random.default_rng(7)
+
     for frame, stype in events:
         t0 = int(frame / fps * SAMPLE_RATE)
-        freq  = _FREQ.get(stype, 440)
-        secs  = _LEN_S.get(stype, 0.05)
-        vol   = _VOL.get(stype, 0.2)
-        ns = int(SAMPLE_RATE * secs)
-        t  = np.arange(ns) / SAMPLE_RATE
-        tone = vol * np.sin(2 * np.pi * freq * t) * np.exp(-t * 20)
-        end = min(t0 + ns, n)
+        if stype == "eat":
+            tone = _make_eat(rng)
+        elif stype.startswith("note:"):
+            freq = float(stype[5:])
+            tone = _make_note_tone(freq)
+        else:
+            continue
+        end = min(t0 + len(tone), n)
         audio[t0:end] += tone[:end - t0]
+
     peak = np.max(np.abs(audio))
     if peak > 0:
         audio /= peak * 1.05
     return audio
+
+
+def _make_eat(rng) -> np.ndarray:
+    """Bloop ascendente — igual lógica que engine/sounds.py."""
+    dur = 0.11
+    t = np.linspace(0, dur, int(SAMPLE_RATE * dur), endpoint=False)
+    freq = 500 + 900 * (t / dur) ** 0.6
+    phase = np.cumsum(freq / SAMPLE_RATE) * 2 * np.pi
+    tone = 0.48 * np.sin(phase) * np.exp(-t * 22)
+    tone += 0.12 * np.sin(phase * 2) * np.exp(-t * 35)
+    return tone.astype(np.float32)
+
+
+def _make_note_tone(freq: float, dur: float = 0.18) -> np.ndarray:
+    """Nota de melodía: sinusoide limpia con ataque y decay suaves."""
+    t = np.linspace(0, dur, int(SAMPLE_RATE * dur), endpoint=False)
+    tone = 0.5 * np.sin(2 * np.pi * freq * t)
+    # Segunda armónica suave para calidez
+    tone += 0.15 * np.sin(2 * np.pi * freq * 2 * t)
+    n_att = int(SAMPLE_RATE * 0.012)
+    n_rel = int(SAMPLE_RATE * 0.05)
+    env = np.ones(len(t))
+    env[:n_att] = np.linspace(0, 1, n_att)
+    env[-n_rel:] = np.linspace(1, 0, n_rel)
+    return (tone * env).astype(np.float32)
 
 
 def _save_wav(audio: np.ndarray, path: str) -> None:

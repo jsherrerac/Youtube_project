@@ -32,9 +32,9 @@ def draw_hud(surface: pygame.Surface, elapsed_secs: float,
     m, s = divmod(int(elapsed_secs), 60)
     timer = f"{m:02d}:{s:02d}"
     count = f"particles left: {particle_count}"
-    h = surface.get_height()
-    _blit_centered(surface, _font_hud.render(timer, True, color), h - 130)
-    _blit_centered(surface, _font_hud.render(count, True, color), h - 75)
+    # Posición: bajo el hook text (que termina ~175 px), en zona visible del Short
+    _blit_centered(surface, _font_hud.render(timer, True, color), 200)
+    _blit_centered(surface, _font_hud.render(count, True, color), 258)
 
 
 # ---------- helpers ----------

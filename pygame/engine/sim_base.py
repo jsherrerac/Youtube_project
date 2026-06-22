@@ -15,12 +15,13 @@ from .overlay import draw_hook, draw_hud
 
 class BaseSimulation:
     def __init__(self, sim_cfg):
-        self.sim_cfg    = sim_cfg
-        self.space      = pymunk.Space()
-        self.audio_log  = AudioLog()
-        self.frame_count = 0
-        self._accum     = 0.0
-        self._running   = True
+        self.sim_cfg      = sim_cfg
+        self.space        = pymunk.Space()
+        self.audio_log    = AudioLog()
+        self.frame_count  = 0
+        self._accum       = 0.0
+        self._running     = True
+        self.is_recording = False   # True solo en modo --record; la sim puede consultarlo
 
     # ------------------------------------------------------------------ #
     # Ciclo de vida — subclases deben implementar todos estos             #
@@ -76,6 +77,7 @@ class BaseSimulation:
         pygame.display.set_caption(title)
         surface = pygame.Surface((W, H))
 
+        self.is_recording = record  # expuesto para que la sim omita sonidos en modo record
         recorder = None
         out_path = getattr(self.sim_cfg, 'OUTPUT_PATH', None)
         if record and out_path:
