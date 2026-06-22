@@ -4,7 +4,12 @@
       "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\")",
       "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\pygame\")",
       "PowerShell(Move-Item \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\sine_from_circle.py\" \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\\\\sine_from_circle.py\")",
-      "PowerShell(Move-Item \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\media\" \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\\\\media\")"
+      "PowerShell(Move-Item \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\media\" \"C:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\manim\\\\media\")",
+      "Bash(python pygame/circulo_5bolas.py)",
+      "Bash(pip install *)",
+      "Bash(find /c/ /d/ -name \"ffmpeg.exe\" 2>/dev/null | head -5)",
+      "Read(//c//**)",
+      "PowerShell(Get-Command ffmpeg -ErrorAction SilentlyContinue)"
     ]
   }
 }
