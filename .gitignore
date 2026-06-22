@@ -1,5 +1,8 @@
-# Videos y renders de Manim (pesados)
+# Videos y renders (pesados)
 manim/media/
+*.mp4
+*.mp3
+*.wav
 
 # Cache de Python
 __pycache__/

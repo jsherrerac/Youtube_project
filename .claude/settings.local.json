@@ -9,7 +9,9 @@
       "Bash(pip install *)",
       "Bash(find /c/ /d/ -name \"ffmpeg.exe\" 2>/dev/null | head -5)",
       "Read(//c//**)",
-      "PowerShell(Get-Command ffmpeg -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Command ffmpeg -ErrorAction SilentlyContinue)",
+      "Bash(python pygame/spike_melodia/spike_melodia.py)",
+      "Bash(python -c \"import imageio_ffmpeg, inspect; print\\(inspect.signature\\(imageio_ffmpeg.write_frames\\)\\)\")"
     ]
   }
 }
