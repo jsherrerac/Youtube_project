@@ -11,7 +11,23 @@
       "Read(//c//**)",
       "PowerShell(Get-Command ffmpeg -ErrorAction SilentlyContinue)",
       "Bash(python pygame/spike_melodia/spike_melodia.py)",
-      "Bash(python -c \"import imageio_ffmpeg, inspect; print\\(inspect.signature\\(imageio_ffmpeg.write_frames\\)\\)\")"
+      "Bash(python -c \"import imageio_ffmpeg, inspect; print\\(inspect.signature\\(imageio_ffmpeg.write_frames\\)\\)\")",
+      "Bash(python -c \"import pymunk; import moviepy; import imageio; print\\('pymunk', pymunk.__version__\\); print\\('moviepy', moviepy.__version__\\); print\\('imageio', imageio.__version__\\)\")",
+      "Bash(python -c \"from moviepy.editor import VideoFileClip; print\\('editor OK'\\)\")",
+      "Bash(python -c \"from moviepy import VideoFileClip; print\\('v2 OK'\\)\")",
+      "Bash(python -c \"import pymunk; print\\(pymunk._version.__version__\\)\")",
+      "Bash(python -c \"import imageio; print\\(imageio.__version__\\)\")",
+      "Bash(python -c \"import pymunk; print\\(dir\\(pymunk\\)\\)\")",
+      "Bash(python -c \"import imageio; print\\(imageio.__version__\\); from moviepy import VideoFileClip, AudioFileClip; print\\('moviepy v2 import OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import pymunk; s = pymunk.Space\\(\\); print\\([x for x in dir\\(s\\) if 'collision' in x.lower\\(\\)]\\)\")",
+      "Bash(python main.py eat_the_map)",
+      "Bash(git -C \"c:/Users/LOQ/Desktop/Youtube_project\" log --oneline -10)",
+      "Bash(git -C \"c:/Users/LOQ/Desktop/Youtube_project\" status)",
+      "Bash(git -C \"c:/Users/LOQ/Desktop/Youtube_project\" diff pygame/eat_the_map/sim.py)",
+      "Bash(git -C \"c:/Users/LOQ/Desktop/Youtube_project\" restore pygame/eat_the_map/sim.py)",
+      "Bash(ffmpeg -i \"c:/Users/LOQ/Desktop/Youtube_project/pygame/eat_the_map/minecraft-mob-villager-hit-2-gaming-sound-effect-minecraft-hd-sound-effects.mp3\" -af silencedetect=noise=-40dB:d=0.01 -f null -)",
+      "PowerShell(ffmpeg -i \"c:\\\\Users\\\\LOQ\\\\Desktop\\\\Youtube_project\\\\pygame\\\\eat_the_map\\\\minecraft-mob-villager-hit-2-gaming-sound-effect-minecraft-hd-sound-effects.mp3\" -af silencedetect=noise=-40dB:d=0.01 -f null - 2>&1)"
     ]
   }
 }

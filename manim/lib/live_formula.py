@@ -14,7 +14,7 @@ import numpy as np
 from manim import (
     VGroup, Axes, DecimalNumber, Text,
     ValueTracker, always_redraw,
-    WHITE, TAU, PI,
+    WHITE, TAU, PI, RIGHT, DOWN,
 )
 from .theme import (
     OPPOSITE, ADJACENT, CIRCUMFERENCE, HIGHLIGHT, WAVE,
@@ -63,7 +63,7 @@ class LiveSineFormula(VGroup):
 
         # ── Números vivos ────────────────────────────────────────────────────
         # Cada parámetro usa el color del objeto matemático que representa.
-        dec_cfg = dict(num_decimal_places=2, font_size=FONT_FORMULA)
+        dec_cfg = dict(num_decimal_places=2, mob_class=Text, font_size=FONT_FORMULA)
         self._A_num   = DecimalNumber(A_init,   color=HIGHLIGHT,     **dec_cfg)
         self._k_num   = DecimalNumber(k_init,   color=ADJACENT,      **dec_cfg)
         self._phi_num = DecimalNumber(phi_init,  color=CIRCUMFERENCE, **dec_cfg)
