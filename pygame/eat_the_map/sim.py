@@ -22,15 +22,17 @@ from engine.entities.particles import ParticleField
 from engine.sounds import make_eat_sound, make_melody_note
 from engine.audio import note_to_freq
 
-FINALE_SECONDS = 3.0   # duración fija de la fase final
+FINALE_SECONDS = 2.0   # duración fija de la fase final
 
 
 class EatTheMap(BaseSimulation):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self._wall_hits    = 0
-        self._melody_index = 0
-        self._eat_sound    = None
+        self._wall_hits      = 0
+        self._melody_index   = 0
+        self._eat_sound      = None
+        self._wall_sound     = None
+        self._wall_sound_path: str | None = None
         self._melody_sounds: dict[float, pygame.mixer.Sound] = {}
 
     # ------------------------------------------------------------------ #
@@ -110,18 +112,25 @@ class EatTheMap(BaseSimulation):
             melody = self.sim_cfg.MELODY
             for _ in range(self._wall_hits):
                 self.ball.grow(self.sim_cfg.GROW_ON_WALL)
-                note = melody[self._melody_index % len(melody)]
-                freq = note_to_freq(note)
-                self.audio_log.log(self.frame_count, f"note:{freq:.4f}")
+                if self._wall_sound_path:
+                    self.audio_log.log(self.frame_count,
+                                       f"wall_hit:{self._wall_sound_path}")
+                else:
+                    note = melody[self._melody_index % len(melody)]
+                    freq = note_to_freq(note)
+                    self.audio_log.log(self.frame_count, f"note:{freq:.4f}")
                 self._melody_index += 1
 
             # Sonido de la última nota en modo live
             if not self.is_recording:
-                last_note = melody[(self._melody_index - 1) % len(melody)]
-                freq = note_to_freq(last_note)
-                snd = self._melody_sounds.get(round(freq, 2))
-                if snd:
-                    snd.play()
+                if self._wall_sound:
+                    self._wall_sound.play()
+                else:
+                    last_note = melody[(self._melody_index - 1) % len(melody)]
+                    freq = note_to_freq(last_note)
+                    snd = self._melody_sounds.get(round(freq, 2))
+                    if snd:
+                        snd.play()
 
             # Rotación aleatoria para romper órbitas periódicas
             max_rad = math.radians(self.sim_cfg.DRIFT_ON_WALL_DEG)
@@ -150,16 +159,21 @@ class EatTheMap(BaseSimulation):
         if eaten and self._eat_sound and not self.is_recording:
             self._eat_sound.play()
 
-        # 3. Regenerar partículas
-        self.field.regen_tick(dt, self.ball)
+        # 3. Regenerar partículas (se detiene en el finale)
+        if not self._finale_active:
+            self.field.regen_tick(dt, self.ball)
 
-        # 3b. Fase final: sin partículas + sin espacio → crecer 3 s exactos
-        no_particles = len(self.field.particles) == 0
-        no_space     = (self.sim_cfg.CONTAINER_RADIUS - self.ball.radius) < 32
-        if no_particles and no_space:
+        # 3b. Fase final: bola alcanza 80% del radio máximo → 3 s de rebotes dramáticos
+        if not self._finale_active and \
+                self.ball.radius >= self.sim_cfg.BALL_RADIUS_MAX * 0.80:
             self._finale_active = True
+            # Limpiar partículas restantes para que la bola rebote sola
+            for p in list(self.field.particles):
+                self.field.remove(p)
+            # Boost de velocidad para rebotes visibles
+            self._base_speed = min(self._base_speed * 1.6,
+                                   self.sim_cfg.BALL_SPEED_MAX)
         if self._finale_active:
-            self.ball.grow(self.sim_cfg.FINALE_GROW_PX_PER_SEC * dt)
             self._finale_timer += dt
 
         # 4. Clamp velocidad: _base_speed como piso monotónico
@@ -174,15 +188,14 @@ class EatTheMap(BaseSimulation):
 
     def draw(self, surface: pygame.Surface) -> None:
         self.container.draw(surface)
+        self.draw_big_timer_text(surface, self._elapsed)   # fondo — acción pasa encima
         self.field.draw(surface)
         self.ball.draw(surface)
         self.draw_hook_text(surface, self.sim_cfg.HOOK_TEXT)
         self.draw_hud_text(surface, self._elapsed, len(self.field.particles))
 
     def is_finished(self) -> bool:
-        # La bola gana al completar los 3 s de fase final O al alcanzar radio máximo
-        return self._finale_timer >= FINALE_SECONDS or \
-               self.ball.radius >= self.sim_cfg.BALL_RADIUS_MAX
+        return self._finale_timer >= FINALE_SECONDS
 
     # ------------------------------------------------------------------ #
     # Callbacks pymunk                                                     #
@@ -198,6 +211,13 @@ class EatTheMap(BaseSimulation):
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             self._eat_sound = make_eat_sound()
             self._eat_sound.set_volume(0.55)
+            # Sonido de colisión con pared (WAV recortado sin silencio inicial)
+            import os as _os
+            _wav = _os.path.join(_os.path.dirname(__file__), "villager_hit.wav")
+            if _os.path.exists(_wav):
+                self._wall_sound      = pygame.mixer.Sound(_wav)
+                self._wall_sound.set_volume(0.90)
+                self._wall_sound_path = _wav
             # Pre-generar una Sound por cada nota única de la melodía
             for note in self.sim_cfg.MELODY:
                 freq = note_to_freq(note)

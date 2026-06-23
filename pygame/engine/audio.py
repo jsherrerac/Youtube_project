@@ -13,6 +13,8 @@ import numpy as np
 
 SAMPLE_RATE = 44100
 
+_wav_cache: dict[str, np.ndarray] = {}
+
 # Nombres de nota -> semitonos desde A4 (dentro de la misma octava)
 _NOTE_ST = {'C': -9, 'D': -7, 'E': -5, 'F': -4, 'G': -2, 'A': 0, 'B': 2}
 
@@ -70,6 +72,12 @@ def _synthesize(events, fps: int, duration: float) -> np.ndarray:
         elif stype.startswith("note:"):
             freq = float(stype[5:])
             tone = _make_note_tone(freq)
+        elif stype.startswith("wall_hit:"):
+            wav_path = stype[9:]
+            try:
+                tone = _load_wav_mono(wav_path) * 0.9
+            except Exception:
+                continue
         else:
             continue
         end = min(t0 + len(tone), n)
@@ -104,6 +112,29 @@ def _make_note_tone(freq: float, dur: float = 0.18) -> np.ndarray:
     env[:n_att] = np.linspace(0, 1, n_att)
     env[-n_rel:] = np.linspace(1, 0, n_rel)
     return (tone * env).astype(np.float32)
+
+
+def _load_wav_mono(path: str) -> np.ndarray:
+    """Carga un WAV (mono o estéreo) y lo devuelve como float32 mono a SAMPLE_RATE."""
+    if path in _wav_cache:
+        return _wav_cache[path]
+    with wave.open(path, 'r') as wf:
+        channels  = wf.getnchannels()
+        sampwidth = wf.getsampwidth()
+        framerate = wf.getframerate()
+        raw       = wf.readframes(wf.getnframes())
+    if sampwidth == 2:
+        s = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    else:
+        s = np.frombuffer(raw, dtype=np.uint8).astype(np.float32) / 128.0 - 1.0
+    if channels == 2:
+        s = s.reshape(-1, 2).mean(axis=1)
+    if framerate != SAMPLE_RATE:
+        n_out = int(len(s) / framerate * SAMPLE_RATE)
+        s = np.interp(np.linspace(0, 1, n_out), np.linspace(0, 1, len(s)), s)
+    s = s.astype(np.float32)
+    _wav_cache[path] = s
+    return s
 
 
 def _save_wav(audio: np.ndarray, path: str) -> None:

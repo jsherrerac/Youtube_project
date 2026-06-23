@@ -10,7 +10,7 @@ from . import config as ecfg
 from .renderer import clear
 from .recorder import Recorder
 from .audio import AudioLog
-from .overlay import draw_hook, draw_hud
+from .overlay import draw_hook, draw_hud, draw_big_timer
 
 
 class BaseSimulation:
@@ -52,6 +52,9 @@ class BaseSimulation:
 
     def draw_hook_text(self, surface: pygame.Surface, text: str) -> None:
         draw_hook(surface, text, ecfg.PALETTE["text_hook"])
+
+    def draw_big_timer_text(self, surface: pygame.Surface, elapsed: float) -> None:
+        draw_big_timer(surface, elapsed)
 
     def draw_hud_text(self, surface: pygame.Surface,
                       elapsed: float, count: int) -> None:
