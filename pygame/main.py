@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 def main() -> None:
     parser = argparse.ArgumentParser(description="Motor de Shorts — despacha sims")
     parser.add_argument("sim",
-                        choices=["eat_the_map"],
+                        choices=["eat_the_map", "pendulum_wave"],
                         help="Nombre de la sim a ejecutar")
     parser.add_argument("--record", action="store_true",
                         help="Graba mp4 en <sim>/output/ (más rápido que realtime)")
@@ -27,6 +27,10 @@ def main() -> None:
         from eat_the_map.sim import EatTheMap
         import eat_the_map.config as sim_cfg
         sim = EatTheMap(sim_cfg)
+    elif args.sim == "pendulum_wave":
+        from pendulum_wave.sim import PendulumWave
+        import pendulum_wave.config as sim_cfg
+        sim = PendulumWave(sim_cfg)
     else:
         print(f"[main] Sim desconocida: {args.sim}")
         sys.exit(1)
