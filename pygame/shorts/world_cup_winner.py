@@ -69,7 +69,7 @@ MAX_SPEED     = 2000.0
 SPIKE_ANGLES_DEG = [-90, 30, 150]
 SPIKE_ANGLES     = [math.radians(a) for a in SPIKE_ANGLES_DEG]
 
-GAP_ANGLE_DEGREES = 15
+GAP_ANGLE_DEGREES = 0
 GAP_CENTER_DEG    = 90                              # 6 en punto (abajo)
 GAP_CENTER_RAD    = math.radians(GAP_CENTER_DEG)
 GAP_HALF          = math.radians(GAP_ANGLE_DEGREES / 2)
@@ -104,31 +104,44 @@ COUNTRIES_ORDER = [
 ]
 
 COUNTRIES_COLORS = {
-    "Argentina":   (108, 174, 222),
-    "France":      (0,   85,  164),
-    "Spain":       (198,  11,   30),
-    "Brazil":      (0,  156,   59),
-    "England":     (200,  16,   46),
-    "Germany":     (255, 206,    0),
-    "Portugal":    (220,  30,   30),
-    "Netherlands": (255,  79,    0),
-    "Croatia":     (220,  20,   20),
-    "Belgium":     (230, 210,    0),
-    "Italy":       (0,  146,   70),
-    "Uruguay":     (114, 173,  217),
-    "Colombia":    (252, 209,   22),
-    "Morocco":     (193,  39,   45),
-    "Japan":       (188,   0,   45),
-    "USA":         (60,   59,  110),
+    "Argentina":    (108, 174, 222),
+    "France":       (0,   85,  164),
+    "Spain":        (198,  11,   30),
+    "Brazil":       (0,  156,   59),
+    "England":      (200,  16,   46),
+    "Germany":      (255, 206,    0),
+    "Portugal":     (220,  30,   30),
+    "Netherlands":  (255,  79,    0),
+    "Croatia":      (220,  20,   20),
+    "Belgium":      (230, 210,    0),
+    "Italy":        (0,  146,   70),
+    "Uruguay":      (114, 173,  217),
+    "Colombia":     (252, 209,   22),
+    "Morocco":      (193,  39,   45),
+    "Japan":        (188,   0,   45),
+    "USA":          (60,   59,  110),
+    # Nuevos países
+    "Norway":       (239,  43,   45),
+    "Senegal":      (0,  160,   60),
+    "Iraq":         (200,  50,   50),
+    "Cape Verde":   (60,  120,  200),
+    "Saudi Arabia": (0,  150,   50),
+    "Egypt":        (200,  60,   60),
+    "Iran":         (50,  170,   80),
+    "New Zealand":  (0,   50,  150),
 }
 
 FLAG_CODES = {
-    "Argentina": "ar", "France":      "fr", "Spain":       "es",
-    "Brazil":    "br", "England":     "gb", "Germany":     "de",
-    "Portugal":  "pt", "Netherlands": "nl", "Croatia":     "hr",
-    "Belgium":   "be", "Italy":       "it", "Uruguay":     "uy",
-    "Colombia":  "co", "Morocco":     "ma", "Japan":       "jp",
+    "Argentina": "ar", "France":       "fr", "Spain":        "es",
+    "Brazil":    "br", "England":      "gb", "Germany":      "de",
+    "Portugal":  "pt", "Netherlands":  "nl", "Croatia":      "hr",
+    "Belgium":   "be", "Italy":        "it", "Uruguay":      "uy",
+    "Colombia":  "co", "Morocco":      "ma", "Japan":        "jp",
     "USA":       "us",
+    # Nuevos países
+    "Norway":       "no", "Senegal":      "sn", "Iraq":         "iq",
+    "Cape Verde":   "cv", "Saudi Arabia": "sa", "Egypt":        "eg",
+    "Iran":         "ir", "New Zealand":  "nz",
 }
 
 
