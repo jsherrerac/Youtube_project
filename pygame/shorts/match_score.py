@@ -12,9 +12,9 @@ Uso:
 # ██  CONFIGURACIÓN DEL PARTIDO — editar solo este bloque para cada juego  ██
 # ═══════════════════════════════════════════════════════════════════════════
 
-TEAM_LEFT   = "EGY"   # código equipo izquierdo  ← línea 14, CAMBIAR AQUÍ
-TEAM_RIGHT  = "IRN"   # código equipo derecho    ← línea 15, CAMBIAR AQUÍ
-RANDOM_SEED = 2  # int → resultado fijo | None → diferente cada vez ← línea 16
+TEAM_LEFT   = "COD"   # código equipo izquierdo  ← línea 14, CAMBIAR AQUÍ
+TEAM_RIGHT  = "UZB"   # código equipo derecho    ← línea 15, CAMBIAR AQUÍ
+RANDOM_SEED = 23  # int → resultado fijo | None → diferente cada vez ← línea 16
 
 CIRCLE_RGB       = (255, 255, 255)  # color de la circunferencia           ← línea 18
 CIRCLE_THICKNESS = 4                # grosor de la línea en px             ← línea 19
@@ -91,6 +91,10 @@ TEAM_TO_COUNTRY = {
     "NOR": "Norway",    "SEN": "Senegal",        "IRQ": "Iraq",
     "CPV": "Cape Verde","SAU": "Saudi Arabia",   "EGY": "Egypt",
     "IRN": "Iran",      "NZL": "New Zealand",
+    # Mundial 2026 — nuevos
+    "GHA": "Ghana",     "PAN": "Panama",         "COD": "DR Congo",
+    "UZB": "Uzbekistan","ALG": "Algeria",         "AUT": "Austria",
+    "JOR": "Jordan",
 }
 
 

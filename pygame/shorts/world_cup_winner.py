@@ -129,6 +129,14 @@ COUNTRIES_COLORS = {
     "Egypt":        (200,  60,   60),
     "Iran":         (50,  170,   80),
     "New Zealand":  (0,   50,  150),
+    # Mundial 2026 — nuevos
+    "Ghana":        (0,  120,   50),
+    "Panama":       (210,  40,   50),
+    "DR Congo":     (0,  100,  200),
+    "Uzbekistan":   (30,  160,   80),
+    "Algeria":      (0,  150,   60),
+    "Austria":      (200,  20,   20),
+    "Jordan":       (200,  30,   30),
 }
 
 FLAG_CODES = {
@@ -142,6 +150,10 @@ FLAG_CODES = {
     "Norway":       "no", "Senegal":      "sn", "Iraq":         "iq",
     "Cape Verde":   "cv", "Saudi Arabia": "sa", "Egypt":        "eg",
     "Iran":         "ir", "New Zealand":  "nz",
+    # Mundial 2026 — nuevos
+    "Ghana":        "gh", "Panama":       "pa", "DR Congo":     "cd",
+    "Uzbekistan":   "uz", "Algeria":      "dz", "Austria":      "at",
+    "Jordan":       "jo",
 }
 
 
