@@ -12,9 +12,9 @@ Uso:
 # ██  CONFIGURACIÓN DEL PARTIDO — editar solo este bloque para cada juego  ██
 # ═══════════════════════════════════════════════════════════════════════════
 
-TEAM_LEFT   = "COD"   # código equipo izquierdo  ← línea 14, CAMBIAR AQUÍ
-TEAM_RIGHT  = "UZB"   # código equipo derecho    ← línea 15, CAMBIAR AQUÍ
-RANDOM_SEED = 23  # int → resultado fijo | None → diferente cada vez ← línea 16
+TEAM_LEFT   = "COL"   # código equipo izquierdo  ← línea 14, CAMBIAR AQUÍ
+TEAM_RIGHT  = "POR"   # código equipo derecho    ← línea 15, CAMBIAR AQUÍ
+RANDOM_SEED = 9  # int → resultado fijo | None → diferente cada vez ← línea 16
 
 CIRCLE_RGB       = (255, 255, 255)  # color de la circunferencia           ← línea 18
 CIRCLE_THICKNESS = 4                # grosor de la línea en px             ← línea 19
@@ -119,8 +119,8 @@ BALL_SPEED0   = 500.0
 ACCEL_RATE    = 0.08
 MAX_SPEED     = 1900.0
 
-# 4 spikes en cruz — más cobertura para muertes rápidas y scores realistas
-SPIKE_ANGLES_DEG = [0, 90, 180, 270]
+# 3 spikes — triángulo
+SPIKE_ANGLES_DEG = [0, 120, 240]
 SPIKE_ANGLES     = [math.radians(a) for a in SPIKE_ANGLES_DEG]
 SPIKE_OMEGA      = 2 * math.pi / (FPS * 10)
 SPIKE_LENGTH     = 100
@@ -129,8 +129,9 @@ SPIKE_WIDTH      = 130
 GRAVITY   = 260.0
 PART_DAMP = 0.993
 
-PULSE_FRAMES = 12     # duración del flash de gol (0.2 s)
-FINAL_FRAMES = int(FPS * 3.5)
+PULSE_FRAMES     = 12     # duración del flash de gol (0.2 s)
+FINAL_FRAMES     = int(FPS * 3.5)
+COUNTDOWN_FRAMES = FPS * 3  # 3 segundos: 3-2-1
 
 COLOR_BG         = (0, 0, 0)
 MAX_TOTAL_FRAMES = FPS * 90   # tope: 1.5 min
@@ -464,8 +465,9 @@ def main():
     dead_l  = False; dead_r = False
     pulse_l = 0;  pulse_r = 0
 
-    state       = 'playing'
-    final_timer = 0
+    state            = 'countdown'
+    final_timer      = 0
+    countdown_timer  = COUNTDOWN_FRAMES
 
     _PENTA = [130.81, 146.83, 164.81, 196.00, 220.00]
 
@@ -495,7 +497,12 @@ def main():
         if pulse_r > 0: pulse_r -= 1
 
         # ── Lógica ────────────────────────────────────────────────────────
-        if state == 'playing':
+        if state == 'countdown':
+            countdown_timer -= 1
+            if countdown_timer <= 0:
+                state = 'playing'
+
+        elif state == 'playing':
 
             # Bola izquierda
             if not dead_l:
@@ -576,10 +583,11 @@ def main():
             for p in all_particles:
                 p.draw(surface)
 
-            if not dead_l:
-                draw_ball(surface, country_l, pos_l, r_l)
-            if not dead_r:
-                draw_ball(surface, country_r, pos_r, r_r)
+            if state == 'playing':
+                if not dead_l:
+                    draw_ball(surface, country_l, pos_l, r_l)
+                if not dead_r:
+                    draw_ball(surface, country_r, pos_r, r_r)
 
             draw_title(surface, font_big, font_sub, country_l, country_r)
             draw_scoreboard(surface, font_score,
@@ -587,6 +595,13 @@ def main():
                             score_l, score_r,
                             dead_l, dead_r,
                             pulse_l, pulse_r)
+
+            if state == 'countdown':
+                num = max(1, math.ceil(countdown_timer / FPS))
+                alpha = min(255, int((countdown_timer % FPS) / FPS * 255 + 80))
+                cd_surf = font_score.render(str(num), True, (255, 215, 0))
+                cd_surf.set_alpha(alpha)
+                surface.blit(cd_surf, cd_surf.get_rect(center=(WIDTH // 2, int(ARENA_CENTER[1]))))
 
         push(surface)
         scaled = pygame.transform.scale(surface, screen.get_size())
