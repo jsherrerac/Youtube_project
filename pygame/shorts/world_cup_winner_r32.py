@@ -13,7 +13,9 @@ Uso:
 # CONFIGURACIÓN — editar solo este bloque
 # ══════════════════════════════════════════════════════════════════════════════
 
-SEED_SEARCH = False   # True → prueba 200 seeds headless, imprime tabla y sale
+SEED_SEARCH = False
+
+WINNER_TAGLINE: str | None = "NEVER LOST A MATCH"
 
 TEAMS_R32 = [
     # 28 clasificados confirmados al 27 jun 2026
@@ -21,7 +23,7 @@ TEAMS_R32 = [
     "PAR", "ESP", "POR", "FRA", "GER", "NED", "BEL", "CRO",
     "ENG", "NOR", "SUI", "AUT", "ALG", "MAR", "EGY", "GHA",
     "SEN", "CPV", "JPN", "KOR",
-    # 4 cupos pendientes — COMPLETAR mañana antes de correr
+    # 4 cupos pendientes — COMPLETAR antes de correr
     "TBD_01", "TBD_02", "TBD_03", "TBD_04",   # ← REEMPLAZAR
 ]
 
@@ -54,7 +56,7 @@ ensure_flag              = _wcw.ensure_flag
 get_flag_ball            = _wcw.get_flag_ball
 get_flag_sub             = _wcw.get_flag_sub
 Particle                 = _wcw.Particle
-spawn_explosion          = _wcw.spawn_explosion
+spawn_explosion          = _wcw.spawn_explosion   # usado solo en winner screen
 collide_particles        = _wcw.collide_particles
 push_particles_from_ball = _wcw.push_particles_from_ball
 gen_bong                 = _wcw.gen_bong
@@ -100,6 +102,13 @@ TEAM_TO_COUNTRY = {
     "RSA": "South Africa",
 }
 
+COUNTRY_TO_ISO = {v: k for k, v in TEAM_TO_COUNTRY.items()}
+
+BET365_PATH     = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "assets", "bet-365-goal-sound.mp3")
+BUBBLE_POP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "assets", "bubble-pop.mp3")
+
 # ── Constantes físicas ────────────────────────────────────────────────────────
 WIDTH, HEIGHT    = 1080, 1920
 FPS              = RENDER_FPS
@@ -114,7 +123,7 @@ ACCEL_RATE       = 0.07
 MAX_SPEED        = 1800.0
 SPIKE_ANGLES_DEG = [0, 120, 240]
 SPIKE_ANGLES     = [math.radians(a) for a in SPIKE_ANGLES_DEG]
-SPIKE_OMEGA      = 2 * math.pi / (FPS * 8)
+SPIKE_OMEGA      = 2 * math.pi / (FPS * 8)   # rad/frame (original)
 SPIKE_LENGTH     = 95
 SPIKE_WIDTH      = 120
 GRAVITY          = 260.0
@@ -125,18 +134,18 @@ WINNER_FRAMES    = int(FPS * 2.0)
 MAX_FRAMES       = int(FPS * (DURATION_S + 10))
 
 # Propagar a _wcw (Particle.step, spawn_explosion usan sus module globals)
-_wcw.GRAVITY           = GRAVITY
-_wcw.PART_DAMP         = PART_DAMP
-_wcw.ARENA_CENTER      = ARENA_CENTER
-_wcw.ARENA_RADIUS      = ARENA_RADIUS
-_wcw.N_PARTICLES       = N_PARTICLES
+_wcw.GRAVITY             = GRAVITY
+_wcw.PART_DAMP           = PART_DAMP
+_wcw.ARENA_CENTER        = ARENA_CENTER
+_wcw.ARENA_RADIUS        = ARENA_RADIUS
+_wcw.N_PARTICLES         = N_PARTICLES
 _wcw.BALL_INITIAL_RADIUS = BALL_R0
-_wcw.MAX_BALL_R        = MAX_BALL_R
-_wcw.SPIKE_LENGTH      = SPIKE_LENGTH
-_wcw.SPIKE_WIDTH       = SPIKE_WIDTH
+_wcw.MAX_BALL_R          = MAX_BALL_R
+_wcw.SPIKE_LENGTH        = SPIKE_LENGTH
+_wcw.SPIKE_WIDTH         = SPIKE_WIDTH
 
 # ══════════════════════════════════════════════════════════════════════════════
-# GEOMETRÍA Y FÍSICA
+# GEOMETRÍA Y FÍSICA  (idéntico al original pre-chat)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def spike_pts(angle):
@@ -198,8 +207,110 @@ def bounce_particles_on_spike(particles, spike_angle):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PARTÍCULA-BANDERA CIRCULAR  (círculo con flag image, física = Particle original)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_PART_FADE_DUR = 0.8   # segundos de fade al final de vida
+
+class FlagBallParticle:
+    """Partícula circular con imagen de bandera. Física idéntica a Particle original."""
+    __slots__ = ('pos', 'vel', 'r', 'age', 'lifetime', 'country', '_img')
+
+    def __init__(self, pos, vel, r: float, country: str, lifetime: float):
+        self.pos      = pos.astype(float)
+        self.vel      = vel.astype(float)
+        self.r        = float(r)
+        self.age      = 0.0
+        self.lifetime = lifetime
+        self.country  = country
+        diam          = max(2, int(r) * 2)
+        self._img     = get_flag_ball(country, diam)   # círculo precacheado
+
+    def step(self, dt: float):
+        self.age     += dt
+        self.vel[1]  += GRAVITY * dt
+        self.vel     *= PART_DAMP
+        self.pos     += self.vel * dt
+        delta = self.pos - ARENA_CENTER
+        d = np.linalg.norm(delta)
+        if d + self.r >= ARENA_RADIUS:
+            n = delta / d
+            if np.dot(self.vel, n) > 0:
+                self.vel -= 2 * np.dot(self.vel, n) * n
+            self.pos = ARENA_CENTER + n * (ARENA_RADIUS - self.r - 1)
+
+    def draw(self, surf: pygame.Surface):
+        time_left = self.lifetime - self.age
+        if time_left <= 0:
+            return
+        a = int(min(255.0, time_left / _PART_FADE_DUR * 255.0)) if time_left < _PART_FADE_DUR else 255
+        ix, iy = int(self.pos[0]), int(self.pos[1])
+        img = self._img
+        if img is None:
+            col = COUNTRIES_COLORS.get(self.country, (180, 180, 180))
+            draw_glow(surf, (ix, iy), int(self.r), col, layers=6, max_alpha=a)
+            return
+        if a >= 255:
+            surf.blit(img, img.get_rect(center=(ix, iy)))
+        else:
+            tmp = img.copy()
+            tmp.fill((255, 255, 255, a), special_flags=pygame.BLEND_RGBA_MULT)
+            surf.blit(tmp, tmp.get_rect(center=(ix, iy)))
+
+
+def _elim_lifetime(elim_count: int) -> float:
+    """Duración de partículas según orden de eliminación (0-indexado)."""
+    if elim_count < 10:
+        return 2.5
+    if elim_count < 25:
+        return 3.5
+    return 5.0
+
+
+def spawn_flag_explosion(pos: np.ndarray, country: str, ball_r: int,
+                         lifetime: float = 2.5) -> list:
+    """Misma lógica de spawn que el original spawn_explosion, pero usa FlagBallParticle."""
+    t      = (ball_r - BALL_R0) / max(1, MAX_BALL_R - BALL_R0)
+    part_r = max(7, min(24, int(7 + 17 * t)))
+    parts  = []
+    for _ in range(N_PARTICLES):
+        ang = random.uniform(0, 2 * math.pi)
+        spd = random.uniform(120, 620)
+        vel = np.array([math.cos(ang), math.sin(ang)]) * spd
+        parts.append(FlagBallParticle(pos.copy(), vel, part_r, country, lifetime))
+    return parts
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # AUDIO
 # ══════════════════════════════════════════════════════════════════════════════
+
+def gen_bubble_pop(dur: float = 0.10) -> np.ndarray:
+    """Fallback sintético — solo si bubble-pop.mp3 no existe."""
+    n    = int(SAMPLE_RATE * dur)
+    t    = np.linspace(0, dur, n, endpoint=False)
+    freq = 900 * np.exp(-t * 25) + 150
+    phase = np.cumsum(freq / SAMPLE_RATE) * 2 * math.pi
+    env  = np.exp(-t * 30) * np.minimum(t * 500, 1.0)
+    s    = np.sin(phase) * env
+    rng  = np.random.default_rng(99)
+    s   += rng.standard_normal(n) * np.exp(-t * 100) * 0.08
+    peak = np.max(np.abs(s))
+    return (s / (peak + 1e-9) * 0.75 * 32767).astype(np.int16)
+
+
+def gen_metal_hit(freq=440.0, dur=0.22) -> np.ndarray:
+    """Golpe metálico con parciales inarmónicas para colisiones de pared."""
+    n  = int(SAMPLE_RATE * dur)
+    t  = np.linspace(0, dur, n, endpoint=False)
+    s  = (np.sin(2*math.pi * freq       * t) * np.exp(-t * 18)
+        + np.sin(2*math.pi * freq * 2.76 * t) * np.exp(-t * 26) * 0.55
+        + np.sin(2*math.pi * freq * 5.40 * t) * np.exp(-t * 44) * 0.25
+        + np.sin(2*math.pi * freq * 0.52 * t) * np.exp(-t * 12) * 0.38)
+    click = np.random.default_rng(int(freq) & 0xFFFF).standard_normal(n) * np.exp(-t * 700) * 0.14
+    s += click
+    return (s / (np.max(np.abs(s)) + 1e-9) * 0.88 * 32767).astype(np.int16)
+
 
 def gen_crunch(dur=0.18):
     n   = int(SAMPLE_RATE * dur)
@@ -211,11 +322,7 @@ def gen_crunch(dur=0.18):
     return (s / (np.max(np.abs(s)) + 1e-9) * 0.85 * 32767).astype(np.int16)
 
 
-def process_audio(raw_events, total_frames):
-    """
-    - Agrupa explosiones en ventanas de 18 frames: si ≥3 → un 'crunch'
-    - Ducking: ×0.5 si hay otro audio dentro de 12 frames (excepto fanfare)
-    """
+def process_audio(raw_events, total_frames, bubble_pcm=None):
     CRUNCH_WIN = 18
     DUCK_WIN   = 12
 
@@ -245,12 +352,19 @@ def process_audio(raw_events, total_frames):
         pos  = int(fn * SAMPLE_RATE / FPS)
         duck = 0.5 if (fn - last_fn) < DUCK_WIN and stype != 'fanfare' else 1.0
         last_fn = fn
-        if   stype == 'bong':      snd = gen_bong(param or 300.0).astype(np.float64) * duck
+        if   stype == 'metal':     snd = gen_metal_hit(param or 440.0).astype(np.float64) * duck
+        elif stype == 'bong':      snd = gen_bong(param or 300.0).astype(np.float64) * duck
         elif stype == 'explosion': snd = gen_explosion().astype(np.float64) * duck
         elif stype == 'crunch':    snd = gen_crunch().astype(np.float64) * duck
         elif stype == 'sad':       snd = gen_sad_whoosh().astype(np.float64) * duck
         elif stype == 'fanfare':   snd = gen_fanfare().astype(np.float64)
-        else: continue
+        elif stype == 'bubble':
+            if bubble_pcm is not None:
+                snd = bubble_pcm * duck
+            else:
+                snd = gen_bubble_pop().astype(np.float64) * duck
+        else:
+            continue
         end = min(pos + len(snd), total_samples)
         buf[pos:end] += snd[:end - pos]
 
@@ -258,6 +372,22 @@ def process_audio(raw_events, total_frames):
     if peak > 0:
         buf = buf / peak * 0.90 * 32767
     return buf.astype(np.int16)
+
+
+def _load_mp3_pcm(path: str) -> np.ndarray:
+    """Decodifica MP3 a PCM mono float64 normalizado via ffmpeg."""
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    result = subprocess.run(
+        [ffmpeg_exe, '-i', path, '-f', 's16le', '-ar', str(SAMPLE_RATE), '-ac', '1', '-'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0 or not result.stdout:
+        return np.zeros(0, dtype=np.float64)
+    pcm  = np.frombuffer(result.stdout, dtype=np.int16).astype(np.float64)
+    peak = np.max(np.abs(pcm))
+    if peak > 0:
+        pcm = pcm / peak * 0.85 * 32767
+    return pcm
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -286,11 +416,13 @@ def draw_arena(surf, arena_glow, rotation):
         pygame.draw.polygon(surf, (205, 205, 210), pts, 2)
 
 
-def draw_ball_br(surf, country, pos, r, near_miss):
+def draw_ball_br(surf, country, pos, r, near_miss_t):
+    """near_miss_t: segundos restantes del glow blanco [0, 0.4]."""
     col = COUNTRIES_COLORS.get(country, (180, 180, 180))
-    if near_miss > 0:
-        draw_glow(surf, (int(pos[0]), int(pos[1])), int(r) + 10,
-                  (255, 255, 80), layers=8, max_alpha=int(near_miss / 18.0 * 200))
+    if near_miss_t > 0:
+        intensity = near_miss_t / 0.4
+        draw_glow(surf, (int(pos[0]), int(pos[1])), int(r) + 12,
+                  (255, 255, 255), layers=12, max_alpha=int(intensity * 220))
     draw_glow(surf, (int(pos[0]), int(pos[1])), int(r), col, layers=10, max_alpha=90)
     flag = get_flag_ball(country, int(r) * 2)
     if flag:
@@ -299,9 +431,19 @@ def draw_ball_br(surf, country, pos, r, near_miss):
         pygame.draw.circle(surf, col, (int(pos[0]), int(pos[1])), max(1, int(r)))
 
 
+def draw_iso_label(surf, font_iso, country, pos, r, alpha=229):
+    if alpha <= 0:
+        return
+    iso = COUNTRY_TO_ISO.get(country, country[:3].upper())
+    txt = font_iso.render(iso, True, (255, 255, 255))
+    txt.set_alpha(max(0, min(255, int(alpha))))
+    surf.blit(txt, txt.get_rect(centerx=int(pos[0]),
+                                centery=int(pos[1]) - int(r * 1.2) - 14))
+
+
 def draw_intro_grid(surf, teams_countries, font_xs, alpha):
     COLS, ROWS = 4, 8
-    CELL_W = WIDTH // COLS    # 270
+    CELL_W = WIDTH // COLS
     CELL_H = 158
     GRID_TOP = (HEIGHT - ROWS * CELL_H) // 2
     FLAG_H = 82
@@ -317,7 +459,6 @@ def draw_intro_grid(surf, teams_countries, font_xs, alpha):
         if flag:
             overlay.blit(flag, flag.get_rect(centerx=cx, centery=cy - 12))
         else:
-            # TBD placeholder
             pygame.draw.rect(overlay, (60, 60, 60),
                              (cx - 55, cy - 12 - FLAG_H//2, 110, FLAG_H), 2)
 
@@ -328,16 +469,32 @@ def draw_intro_grid(surf, teams_countries, font_xs, alpha):
     surf.blit(overlay, (0, GRID_TOP))
 
 
-def draw_header(surf, font_big, font_sub, font_sm, alive_count, total):
+def draw_header(surf, font_big, font_sub, font_sm, font_cmid, font_cbig,
+                alive_count, total, frame):
     t1 = font_sub.render("Who will win the", True, (200, 200, 200))
     t2 = font_big.render("World Cup 2026?", True, (255, 215, 0))
-    t3 = font_sm.render(f"  {alive_count} / {total} remaining  ", True, (160, 160, 160))
     surf.blit(t1, t1.get_rect(centerx=WIDTH // 2, centery=85))
     surf.blit(t2, t2.get_rect(centerx=WIDTH // 2, centery=175))
+
+    if alive_count <= 1:
+        return
+
+    text = f"  {alive_count} / {total} remaining  "
+
+    if alive_count <= 4:
+        pulse = 1.0 + 0.05 * math.sin(2 * math.pi * frame / (0.5 * FPS))
+        t3 = font_cbig.render(text, True, (255, 200, 0))
+        w, h = t3.get_size()
+        t3 = pygame.transform.scale(t3, (max(1, int(w * pulse)), max(1, int(h * pulse))))
+    elif alive_count <= 9:
+        t3 = font_cmid.render(text, True, (220, 220, 100))
+    else:
+        t3 = font_sm.render(text, True, (160, 160, 160))
+
     surf.blit(t3, t3.get_rect(centerx=WIDTH // 2, centery=268))
 
 
-def draw_winner_screen(surf, winner, timer, particles, font_big, font_med):
+def draw_winner_screen(surf, winner, timer, particles, font_big, font_med, font_sm):
     progress = 1.0 - timer / WINNER_FRAMES
     col      = COUNTRIES_COLORS.get(winner, (255, 215, 0))
     alpha    = min(255, int(progress * 3.5 * 255))
@@ -364,9 +521,17 @@ def draw_winner_screen(surf, winner, timer, particles, font_big, font_med):
     n_surf.set_alpha(alpha)
     surf.blit(n_surf, n_surf.get_rect(centerx=WIDTH // 2, centery=HEIGHT // 2 + 340))
 
+    # Tagline en los últimos 1.5s, fade in 0.4s
+    if WINNER_TAGLINE and timer < int(FPS * 1.5):
+        elapsed = int(FPS * 1.5) - timer
+        tag_alpha = min(255, int(255 * elapsed / (FPS * 0.4)))
+        t_surf = font_sm.render(WINNER_TAGLINE, True, (255, 255, 255))
+        t_surf.set_alpha(tag_alpha)
+        surf.blit(t_surf, t_surf.get_rect(centerx=WIDTH // 2, centery=HEIGHT // 2 + 410))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SEED SEARCH (headless, pura Python)
+# SEED SEARCH (headless, pura Python — física idéntica al original)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _sim_headless(seed, country_list):
@@ -412,11 +577,11 @@ def _sim_headless(seed, country_list):
         balls.append([bx, by, math.cos(va)*spd, math.sin(va)*spd,
                       float(BALL_R0), True, country])
 
-    rot       = 0.0
-    elim      = []
+    rot  = 0.0
+    elim = []
 
     for frame in range(MAX_FRAMES):
-        rot += OM
+        rot += OM                                     # rad/frame, idéntico al main loop
         alive = [b for b in balls if b[5]]
         if len(alive) <= 1:
             break
@@ -444,7 +609,7 @@ def _sim_headless(seed, country_list):
                         vx*=s2; vy*=s2
                 b[0]=bx;b[1]=by;b[2]=vx;b[3]=vy;b[4]=r
 
-    still = [b[6] for b in balls if b[5]]
+    still  = [b[6] for b in balls if b[5]]
     winner = still[0] if still else (elim[-1][1] if elim else "?")
     top5   = list(dict.fromkeys([winner]+[c for _,c in reversed(elim[-4:])]))[:5]
     return winner, top5, frame
@@ -496,13 +661,17 @@ def main():
         if not country.startswith("TBD") and country in FLAG_CODES:
             ensure_flag(country)
 
+    pygame.mixer.pre_init(44100, -16, 1, 1024)
     pygame.init()
     pygame.font.init()
-    font_big = pygame.font.SysFont("Arial", 72, bold=True)
-    font_med = pygame.font.SysFont("Arial", 54, bold=True)
-    font_sub = pygame.font.SysFont("Arial", 48)
-    font_sm  = pygame.font.SysFont("Arial", 36)
-    font_xs  = pygame.font.SysFont("Arial", 26, bold=True)
+    font_big  = pygame.font.SysFont("Arial", 72, bold=True)
+    font_med  = pygame.font.SysFont("Arial", 54, bold=True)
+    font_sub  = pygame.font.SysFont("Arial", 48)
+    font_sm   = pygame.font.SysFont("Arial", 36)
+    font_xs   = pygame.font.SysFont("Arial", 26, bold=True)
+    font_cmid = pygame.font.SysFont("Arial", 47, bold=True)
+    font_cbig = pygame.font.SysFont("Arial", 58, bold=True)
+    font_iso  = pygame.font.SysFont("Arial", 24, bold=True)
 
     scale  = 0.22 if args.record else 0.36
     screen = pygame.display.set_mode((int(WIDTH * scale), int(HEIGHT * scale)))
@@ -536,6 +705,28 @@ def main():
 
     arena_glow = make_arena_glow()
 
+    # Sonido burbuja en preview
+    bubble_sfx = None
+    if not args.record and os.path.exists(BUBBLE_POP_PATH):
+        try:
+            bubble_sfx = pygame.mixer.Sound(BUBBLE_POP_PATH)
+            bubble_sfx.set_volume(0.7)
+        except Exception:
+            bubble_sfx = None
+
+    # Sonidos metálicos de colisión con pared (5 notas pentatónicas)
+    _PENTA_INIT = [130.81, 146.83, 164.81, 196.00, 220.00]
+    metal_sfx_map: dict = {}
+    if not args.record:
+        for _f in _PENTA_INIT:
+            try:
+                _arr = gen_metal_hit(_f)
+                _snd = pygame.mixer.Sound(buffer=_arr)
+                _snd.set_volume(0.6)
+                metal_sfx_map[_f] = _snd
+            except Exception:
+                pass
+
     # ── Inicializar 32 bolas en anillo ───────────────────────────────────────
     n_teams = len(countries)
     ring_r  = ARENA_RADIUS * 0.55
@@ -547,12 +738,13 @@ def main():
         va  = a + math.pi + random.uniform(-0.4, 0.4)
         vel = np.array([math.cos(va), math.sin(va)]) * spd
         balls.append({
-            'country':   country,
-            'pos':       pos.copy(),
-            'vel':       vel.copy(),
-            'r':         float(BALL_R0),
-            'alive':     True,
-            'near_miss': 0,
+            'country':        country,
+            'pos':            pos.copy(),
+            'vel':            vel.copy(),
+            'r':              float(BALL_R0),
+            'alive':          True,
+            'near_miss_t':    0.0,   # glow blanco: segundos restantes [0, 0.4]
+            'near_miss_name': 0.0,   # flash ISO:   segundos restantes [0, 0.6]
         })
 
     # ── Estado ──────────────────────────────────────────────────────────────
@@ -560,15 +752,23 @@ def main():
     all_particles: list = []
     frame          = 0
     running        = True
-    rotation       = 0.0
+    rotation       = 0.0             # rad/frame acumulados
     winner:        str | None = None
     winner_timer   = 0
+    winner_frame:  int | None = None
     state          = 'intro'
     intro_alpha    = 0
     fanfare3_done  = False
     note_idx       = 0
+    elim_count     = 0    # cuántas bolas han muerto (para calcular lifetime)
     _PENTA         = [130.81, 146.83, 164.81, 196.00, 220.00]
     teams_codes    = list(zip(TEAMS_R32, countries))
+    dt             = 1.0 / FPS
+
+    # Escalado visual de bolas (SOLO render, nunca física)
+    vis_scale        = 1.0
+    vis_scale_target = 1.0
+    VIS_SCALE_SPEED  = 1.0 / (0.5 * FPS)
 
     clock = pygame.time.Clock()
 
@@ -579,8 +779,23 @@ def main():
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                 running = False
 
-        dt = 1.0 / FPS
+        # ── Rotación de spikes: idéntica al original (rad/frame)  ───────────
         rotation += SPIKE_OMEGA
+
+        # ── Lerp vis_scale (solo para render) ───────────────────────────────
+        alive_balls = [b for b in balls if b['alive']]
+        alive_count = len(alive_balls)
+        if state == 'playing':
+            if alive_count <= 5:
+                vis_scale_target = 1.7
+            elif alive_count <= 10:
+                vis_scale_target = 1.4
+            else:
+                vis_scale_target = 1.0
+            if vis_scale < vis_scale_target:
+                vis_scale = min(vis_scale_target, vis_scale + VIS_SCALE_SPEED)
+            elif vis_scale > vis_scale_target:
+                vis_scale = max(vis_scale_target, vis_scale - VIS_SCALE_SPEED)
 
         # ── Estados ──────────────────────────────────────────────────────────
         if state == 'intro':
@@ -589,16 +804,14 @@ def main():
                 state = 'playing'
 
         elif state == 'playing':
-            alive_balls = [b for b in balls if b['alive']]
-            alive_count = len(alive_balls)
-
             if alive_count == 3 and not fanfare3_done:
                 sound_events.append((frame, 'fanfare', None))
                 fanfare3_done = True
 
             if alive_count <= 1:
                 if alive_count == 1:
-                    winner = alive_balls[0]['country']
+                    winner       = alive_balls[0]['country']
+                    winner_frame = frame
                     all_particles.clear()
                     col_w = COUNTRIES_COLORS.get(winner, (255, 215, 0))
                     for _ in range(4):
@@ -608,39 +821,61 @@ def main():
                     sound_events.append((frame, 'fanfare', None))
                     state        = 'winner'
                     winner_timer = WINNER_FRAMES
+                    if not args.record:
+                        try:
+                            pygame.mixer.music.load(BET365_PATH)
+                            pygame.mixer.music.play()
+                        except Exception:
+                            pass
                 else:
                     running = False
             else:
                 for b in alive_balls:
+                    # ── Física: SOLO usa b['r'], nunca vis_scale ─────────────
                     b['pos'] += b['vel'] * dt
-                    near = False
+                    r     = b['r']
+                    near  = False
                     killed = False
+
                     for sa in SPIKE_ANGLES:
-                        hit, dist = spike_hit_and_dist(b['pos'], b['r'], sa + rotation)
+                        hit, dist = spike_hit_and_dist(b['pos'], r, sa + rotation)
                         if hit:
+                            lt = _elim_lifetime(elim_count)
                             all_particles.extend(
-                                spawn_explosion(b['pos'],
-                                                COUNTRIES_COLORS.get(b['country'], (200, 200, 200)),
-                                                int(b['r'])))
-                            sound_events.append((frame, 'explosion', None))
+                                spawn_flag_explosion(b['pos'], b['country'], int(r), lt))
+                            elim_count += 1
+                            sound_events.append((frame, 'bubble', None))
                             b['alive'] = False
                             killed = True
+                            if bubble_sfx is not None:
+                                bubble_sfx.play()
                             break
-                        elif dist < b['r'] * 1.5 + 4:
+                        elif dist < r * 1.5 + 4:
                             near = True
 
                     if killed:
                         continue
 
-                    b['near_miss'] = 18 if near else max(0, b['near_miss'] - 1)
+                    # Near-miss timers
+                    if near:
+                        if b['near_miss_t'] <= 0:
+                            b['near_miss_name'] = 0.6
+                        b['near_miss_t'] = 0.4
+                    else:
+                        b['near_miss_t'] = max(0.0, b['near_miss_t'] - dt)
+                    b['near_miss_name'] = max(0.0, b['near_miss_name'] - dt)
 
-                    b['pos'], b['vel'], bounced = wall_bounce(b['pos'], b['vel'], b['r'])
+                    b['pos'], b['vel'], bounced = wall_bounce(b['pos'], b['vel'], r)
                     if bounced:
                         b['r'] = min(b['r'] * (1 + BALL_GROWTH), MAX_BALL_R)
                         spd = np.linalg.norm(b['vel'])
                         if spd > 0:
                             b['vel'] = b['vel'] / spd * min(spd * (1 + ACCEL_RATE), MAX_SPEED)
-                        sound_events.append((frame, 'bong', _PENTA[note_idx % len(_PENTA)]))
+                        freq = _PENTA[note_idx % len(_PENTA)]
+                        sound_events.append((frame, 'metal', freq))
+                        if metal_sfx_map:
+                            s = metal_sfx_map.get(freq)
+                            if s: s.play()
                         note_idx += 1
 
         elif state == 'winner':
@@ -652,6 +887,8 @@ def main():
         if state in ('playing', 'winner'):
             for p in all_particles:
                 p.step(dt)
+            all_particles = [p for p in all_particles
+                             if not isinstance(p, FlagBallParticle) or p.age < p.lifetime]
             if all_particles:
                 for _ in range(2):
                     for sa in SPIKE_ANGLES:
@@ -663,7 +900,8 @@ def main():
 
         if state == 'intro':
             draw_arena(surface, arena_glow, rotation)
-            draw_header(surface, font_big, font_sub, font_sm, n_teams, n_teams)
+            draw_header(surface, font_big, font_sub, font_sm, font_cmid, font_cbig,
+                        n_teams, n_teams, frame)
             draw_intro_grid(surface, teams_codes, font_xs, intro_alpha)
 
         elif state == 'playing':
@@ -672,12 +910,30 @@ def main():
                 p.draw(surface)
             alive_now = sum(1 for b in balls if b['alive'])
             for b in balls:
-                if b['alive']:
-                    draw_ball_br(surface, b['country'], b['pos'], b['r'], b['near_miss'])
-            draw_header(surface, font_big, font_sub, font_sm, alive_now, n_teams)
+                if not b['alive']:
+                    continue
+                draw_r = b['r'] * vis_scale   # radio visual; física usa b['r']
+                draw_ball_br(surface, b['country'], b['pos'], draw_r, b['near_miss_t'])
+
+                # ISO label: siempre si ≤3, o durante near-miss flash
+                if alive_now <= 3:
+                    draw_iso_label(surface, font_iso, b['country'], b['pos'], draw_r, 229)
+                elif b['near_miss_name'] > 0:
+                    elapsed = 0.6 - b['near_miss_name']
+                    if elapsed < 0.2:
+                        a = int(elapsed / 0.2 * 229)
+                    elif elapsed < 0.4:
+                        a = 229
+                    else:
+                        a = int((0.6 - elapsed) / 0.2 * 229)
+                    draw_iso_label(surface, font_iso, b['country'], b['pos'], draw_r, a)
+
+            draw_header(surface, font_big, font_sub, font_sm, font_cmid, font_cbig,
+                        alive_now, n_teams, frame)
 
         elif state == 'winner' and winner:
-            draw_winner_screen(surface, winner, winner_timer, all_particles, font_big, font_med)
+            draw_winner_screen(surface, winner, winner_timer, all_particles,
+                               font_big, font_med, font_sm)
 
         push(surface)
         scaled = pygame.transform.scale(surface, screen.get_size())
@@ -694,7 +950,28 @@ def main():
 
     vid_gen.close()
     print(f"\nVideo: {frame} frames ({frame / FPS:.1f}s). Generando audio...")
-    pcm = process_audio(sound_events, frame)
+
+    bubble_pcm_data = None
+    if os.path.exists(BUBBLE_POP_PATH):
+        print("Cargando bubble-pop.mp3...")
+        bubble_pcm_data = _load_mp3_pcm(BUBBLE_POP_PATH)
+
+    pcm = process_audio(sound_events, frame, bubble_pcm=bubble_pcm_data)
+
+    # Mezclar bet-365 en el frame del ganador
+    if os.path.exists(BET365_PATH) and winner_frame is not None:
+        print("Mezclando bet-365-goal-sound...")
+        mp3_f = _load_mp3_pcm(BET365_PATH)
+        if len(mp3_f) > 0:
+            buf_f   = pcm.astype(np.float64)
+            win_pos = int(winner_frame * SAMPLE_RATE / FPS)
+            end     = min(win_pos + len(mp3_f), len(buf_f))
+            buf_f[win_pos:end] += mp3_f[:end - win_pos]
+            peak = np.max(np.abs(buf_f))
+            if peak > 0:
+                buf_f = buf_f / peak * 0.90 * 32767
+            pcm = buf_f.astype(np.int16)
+
     with wave.open(temp_wav, 'w') as wf:
         wf.setnchannels(1); wf.setsampwidth(2)
         wf.setframerate(SAMPLE_RATE); wf.writeframes(pcm.tobytes())
