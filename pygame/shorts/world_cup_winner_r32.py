@@ -15,19 +15,18 @@ Uso:
 
 SEED_SEARCH = False
 
-WINNER_TAGLINE: str | None = "NEVER LOST A MATCH"
+WINNER_TAGLINE: str | None = "HOME OF THE GOAT"
+HOOK_TEXT = "32 countries. No referees. Only physics."
 
 TEAMS_R32 = [
-    # 28 clasificados confirmados al 27 jun 2026
-    "USA", "MEX", "CAN", "ARG", "BRA", "COL", "URU", "ECU",
+    # Orden basado en lista anterior; URU→RSA, KOR→AUS, TBDs→nuevos clasificados
+    "USA", "MEX", "CAN", "ARG", "BRA", "COL", "RSA", "ECU",
     "PAR", "ESP", "POR", "FRA", "GER", "NED", "BEL", "CRO",
     "ENG", "NOR", "SUI", "AUT", "ALG", "MAR", "EGY", "GHA",
-    "SEN", "CPV", "JPN", "KOR",
-    # 4 cupos pendientes — COMPLETAR antes de correr
-    "TBD_01", "TBD_02", "TBD_03", "TBD_04",   # ← REEMPLAZAR
+    "SEN", "CPV", "JPN", "AUS", "SWE", "COD", "CIV", "BIH",
 ]
 
-RANDOM_SEED   = 42      # int → fijo | None → distinto cada vez
+RANDOM_SEED   = 281      # int → fijo | None → distinto cada vez (Argentina campeón vs Francia)
 DURATION_S    = 18      # objetivo 12-20 s
 RENDER_FPS    = 60
 BG_COLOR      = (0,   0,   0)
@@ -71,15 +70,18 @@ COUNTRIES_COLORS = dict(_wcw.COUNTRIES_COLORS)
 FLAG_CODES       = dict(_wcw.FLAG_CODES)
 
 _EXTRA = {
-    "Mexico":       ("mx", (0,  130,  80)),
-    "Canada":       ("ca", (220,   0,   0)),
-    "Switzerland":  ("ch", (220,  20,  20)),
-    "Ecuador":      ("ec", (0,  160,  50)),
-    "Paraguay":     ("py", (0,   85, 175)),
-    "South Korea":  ("kr", (205,   0,  50)),
-    "Australia":    ("au", (0,   50, 160)),
-    "Ivory Coast":  ("ci", (255, 130,   0)),
-    "South Africa": ("za", (0,  120,  80)),
+    "Mexico":                  ("mx", (0,   130,  80)),
+    "Canada":                  ("ca", (220,    0,   0)),
+    "Switzerland":             ("ch", (220,   20,  20)),
+    "Ecuador":                 ("ec", (0,   160,  50)),
+    "Paraguay":                ("py", (0,    85, 175)),
+    "South Korea":             ("kr", (205,    0,  50)),
+    "Australia":               ("au", (0,    50, 160)),
+    "Ivory Coast":             ("ci", (255,  130,   0)),
+    "South Africa":            ("za", (0,   120,  80)),
+    "Sweden":                  ("se", (0,   106, 167)),
+    "DR Congo":                ("cd", (0,    80, 170)),
+    "Bosnia and Herzegovina":  ("ba", (0,    50, 160)),
 }
 for _n, (_c, _col) in _EXTRA.items():
     FLAG_CODES[_n]       = _c
@@ -99,7 +101,8 @@ TEAM_TO_COUNTRY = {
     "MAR": "Morocco",      "EGY": "Egypt",         "GHA": "Ghana",
     "SEN": "Senegal",      "CPV": "Cape Verde",    "JPN": "Japan",
     "KOR": "South Korea",  "AUS": "Australia",     "CIV": "Ivory Coast",
-    "RSA": "South Africa",
+    "RSA": "South Africa", "SWE": "Sweden",        "COD": "DR Congo",
+    "BIH": "Bosnia and Herzegovina",
 }
 
 COUNTRY_TO_ISO = {v: k for k, v in TEAM_TO_COUNTRY.items()}
@@ -107,7 +110,9 @@ COUNTRY_TO_ISO = {v: k for k, v in TEAM_TO_COUNTRY.items()}
 BET365_PATH     = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                "assets", "bet-365-goal-sound.mp3")
 BUBBLE_POP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "assets", "bubble-pop.mp3")
+                               "assets", "bubble-pop.mp3")
+WHISTLE_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "assets", "freesound_community-referee-whistle-blow-gymnasium-6320.mp3")
 
 # ── Constantes físicas ────────────────────────────────────────────────────────
 WIDTH, HEIGHT    = 1080, 1920
@@ -129,7 +134,7 @@ SPIKE_WIDTH      = 120
 GRAVITY          = 260.0
 PART_DAMP        = 0.993
 N_PARTICLES      = 16
-INTRO_FRAMES     = int(FPS * 1.5)
+INTRO_FRAMES     = int(FPS * 1.0)
 WINNER_FRAMES    = int(FPS * 2.0)
 MAX_FRAMES       = int(FPS * (DURATION_S + 10))
 
@@ -471,9 +476,9 @@ def draw_intro_grid(surf, teams_countries, font_xs, alpha):
 
 def draw_header(surf, font_big, font_sub, font_sm, font_cmid, font_cbig,
                 alive_count, total, frame):
-    t1 = font_sub.render("Who will win the", True, (200, 200, 200))
-    t2 = font_big.render("World Cup 2026?", True, (255, 215, 0))
-    surf.blit(t1, t1.get_rect(centerx=WIDTH // 2, centery=85))
+    t1 = font_cbig.render("32 countries. No referees.", True, (255, 255, 255))
+    t2 = font_big.render("Only physics.", True, (255, 215, 0))
+    surf.blit(t1, t1.get_rect(centerx=WIDTH // 2, centery=90))
     surf.blit(t2, t2.get_rect(centerx=WIDTH // 2, centery=175))
 
     if alive_count <= 1:
@@ -494,7 +499,7 @@ def draw_header(surf, font_big, font_sub, font_sm, font_cmid, font_cbig,
     surf.blit(t3, t3.get_rect(centerx=WIDTH // 2, centery=268))
 
 
-def draw_winner_screen(surf, winner, timer, particles, font_big, font_med, font_sm):
+def draw_winner_screen(surf, winner, timer, particles, font_big, font_med, font_sm, font_tag):
     progress = 1.0 - timer / WINNER_FRAMES
     col      = COUNTRIES_COLORS.get(winner, (255, 215, 0))
     alpha    = min(255, int(progress * 3.5 * 255))
@@ -521,13 +526,64 @@ def draw_winner_screen(surf, winner, timer, particles, font_big, font_med, font_
     n_surf.set_alpha(alpha)
     surf.blit(n_surf, n_surf.get_rect(centerx=WIDTH // 2, centery=HEIGHT // 2 + 340))
 
-    # Tagline en los últimos 1.5s, fade in 0.4s
-    if WINNER_TAGLINE and timer < int(FPS * 1.5):
-        elapsed = int(FPS * 1.5) - timer
-        tag_alpha = min(255, int(255 * elapsed / (FPS * 0.4)))
-        t_surf = font_sm.render(WINNER_TAGLINE, True, (255, 255, 255))
+    # Tagline: 0.3s después del ganador, fade in 0.3s, un pulso ±8%
+    TAG_DELAY = int(FPS * 0.3)
+    TAG_FADE  = int(FPS * 0.3)
+    TAG_PULSE = int(FPS * 0.5)
+    elapsed_total = WINNER_FRAMES - timer
+    if WINNER_TAGLINE and elapsed_total >= TAG_DELAY:
+        elapsed_tag = elapsed_total - TAG_DELAY
+        tag_alpha   = min(255, int(255 * elapsed_tag / max(1, TAG_FADE)))
+        pulse_scale = (1.0 + 0.08 * math.sin(math.pi * elapsed_tag / TAG_PULSE)
+                       if elapsed_tag < TAG_PULSE else 1.0)
+        t_surf = font_tag.render(WINNER_TAGLINE, True, (255, 255, 255))
+        if pulse_scale != 1.0:
+            w, h   = t_surf.get_size()
+            t_surf = pygame.transform.scale(
+                t_surf, (max(1, int(w * pulse_scale)), max(1, int(h * pulse_scale))))
         t_surf.set_alpha(tag_alpha)
-        surf.blit(t_surf, t_surf.get_rect(centerx=WIDTH // 2, centery=HEIGHT // 2 + 410))
+        surf.blit(t_surf, t_surf.get_rect(centerx=WIDTH // 2, centery=HEIGHT // 2 + 430))
+
+
+def draw_finalists_bar(surf, alive_balls, font_fin):
+    if len(alive_balls) < 2:
+        return
+    bar_h = 110
+    bar_y = HEIGHT - bar_h - 30
+    bar   = pygame.Surface((WIDTH, bar_h), pygame.SRCALPHA)
+    bar.fill((0, 0, 0, 190))
+    surf.blit(bar, (0, bar_y))
+
+    cy  = bar_y + bar_h // 2
+    GAP = 18
+    FLAG_H = 65
+
+    a_country = alive_balls[0]['country']
+    b_country = alive_balls[1]['country']
+    a_flag  = get_flag_sub(a_country, height=FLAG_H)
+    b_flag  = get_flag_sub(b_country, height=FLAG_H)
+    a_surf  = font_fin.render(a_country.upper(), True, (255, 255, 255))
+    b_surf  = font_fin.render(b_country.upper(), True, (255, 255, 255))
+    vs_surf = font_fin.render("vs", True, (255, 215, 0))
+
+    afw = a_flag.get_width() if a_flag else 0
+    bfw = b_flag.get_width() if b_flag else 0
+    total_w = (afw + (GAP if afw else 0) + a_surf.get_width() +
+               GAP * 2 + vs_surf.get_width() + GAP * 2 +
+               b_surf.get_width() + (GAP if bfw else 0) + bfw)
+    x = (WIDTH - total_w) // 2
+
+    if a_flag:
+        surf.blit(a_flag, a_flag.get_rect(midleft=(x, cy)))
+        x += afw + GAP
+    surf.blit(a_surf, a_surf.get_rect(midleft=(x, cy)))
+    x += a_surf.get_width() + GAP * 2
+    surf.blit(vs_surf, vs_surf.get_rect(midleft=(x, cy)))
+    x += vs_surf.get_width() + GAP * 2
+    surf.blit(b_surf, b_surf.get_rect(midleft=(x, cy)))
+    if b_flag:
+        x += b_surf.get_width() + GAP
+        surf.blit(b_flag, b_flag.get_rect(midleft=(x, cy)))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -564,12 +620,13 @@ def _sim_headless(seed, country_list):
                    _sd(px,py,tx,ty,brx,bry),
                    _sd(px,py,blx,bly,brx,bry)) < r+4
 
+    # Init IDÉNTICO a main(): mismo orden de random, SIN jitter de ángulo
     rng   = random.Random(seed)
     n     = len(country_list)
     ring  = AR * 0.55
     balls = []
     for i, country in enumerate(country_list):
-        a  = 2*math.pi*i/n + rng.uniform(-0.1, 0.1)
+        a  = 2*math.pi*i/n                            # sin jitter (igual que main)
         bx = ACX + math.cos(a)*ring
         by = ACY + math.sin(a)*ring
         spd = rng.uniform(380, BALL_SPEED0)
@@ -577,14 +634,19 @@ def _sim_headless(seed, country_list):
         balls.append([bx, by, math.cos(va)*spd, math.sin(va)*spd,
                       float(BALL_R0), True, country])
 
-    rot  = 0.0
-    elim = []
+    rot   = 0.0
+    elim  = []
+    state = 'intro'
 
     for frame in range(MAX_FRAMES):
-        rot += OM                                     # rad/frame, idéntico al main loop
+        rot += OM                                     # acumula también durante intro (igual que main)
         alive = [b for b in balls if b[5]]
-        if len(alive) <= 1:
+        if state == 'playing' and len(alive) <= 1:
             break
+        if state == 'intro':
+            if frame >= INTRO_FRAMES:                  # bolas quietas durante intro; spikes ya rotaron
+                state = 'playing'
+            continue
         for b in alive:
             bx,by,vx,vy,r = b[0],b[1],b[2],b[3],b[4]
             bx+=vx*dt; by+=vy*dt
@@ -672,6 +734,8 @@ def main():
     font_cmid = pygame.font.SysFont("Arial", 47, bold=True)
     font_cbig = pygame.font.SysFont("Arial", 58, bold=True)
     font_iso  = pygame.font.SysFont("Arial", 24, bold=True)
+    font_tag  = pygame.font.SysFont("Arial", 48, bold=True)
+    font_fin  = pygame.font.SysFont("Arial", 36, bold=True)
 
     scale  = 0.22 if args.record else 0.36
     screen = pygame.display.set_mode((int(WIDTH * scale), int(HEIGHT * scale)))
@@ -713,6 +777,15 @@ def main():
             bubble_sfx.set_volume(0.7)
         except Exception:
             bubble_sfx = None
+
+    # Pitazo inicial en preview
+    whistle_sfx = None
+    if not args.record and os.path.exists(WHISTLE_PATH):
+        try:
+            whistle_sfx = pygame.mixer.Sound(WHISTLE_PATH)
+            whistle_sfx.set_volume(0.9)
+        except Exception:
+            whistle_sfx = None
 
     # Sonidos metálicos de colisión con pared (5 notas pentatónicas)
     _PENTA_INIT = [130.81, 146.83, 164.81, 196.00, 220.00]
@@ -762,8 +835,9 @@ def main():
     note_idx       = 0
     elim_count     = 0    # cuántas bolas han muerto (para calcular lifetime)
     _PENTA         = [130.81, 146.83, 164.81, 196.00, 220.00]
-    teams_codes    = list(zip(TEAMS_R32, countries))
-    dt             = 1.0 / FPS
+    teams_codes      = list(zip(TEAMS_R32, countries))
+    dt               = 1.0 / FPS
+    grid_fade_frames = 0
 
     # Escalado visual de bolas (SOLO render, nunca física)
     vis_scale        = 1.0
@@ -802,8 +876,13 @@ def main():
             intro_alpha = min(255, intro_alpha + 6)
             if frame >= INTRO_FRAMES:
                 state = 'playing'
+                grid_fade_frames = int(FPS * 0.5)
+                if whistle_sfx is not None:
+                    whistle_sfx.play()
 
         elif state == 'playing':
+            if grid_fade_frames > 0:
+                grid_fade_frames -= 1
             if alive_count == 3 and not fanfare3_done:
                 sound_events.append((frame, 'fanfare', None))
                 fanfare3_done = True
@@ -931,9 +1010,19 @@ def main():
             draw_header(surface, font_big, font_sub, font_sm, font_cmid, font_cbig,
                         alive_now, n_teams, frame)
 
+            if alive_now <= 2:
+                alive_for_bar = [b for b in balls if b['alive']]
+                if len(alive_for_bar) == 2:
+                    draw_finalists_bar(surface, alive_for_bar, font_fin)
+
+            if grid_fade_frames > 0:
+                _GRID_FADE_TOTAL = int(FPS * 0.5)
+                fade_alpha = int(255 * grid_fade_frames / _GRID_FADE_TOTAL)
+                draw_intro_grid(surface, teams_codes, font_xs, fade_alpha)
+
         elif state == 'winner' and winner:
             draw_winner_screen(surface, winner, winner_timer, all_particles,
-                               font_big, font_med, font_sm)
+                               font_big, font_med, font_sm, font_tag)
 
         push(surface)
         scaled = pygame.transform.scale(surface, screen.get_size())
@@ -957,6 +1046,20 @@ def main():
         bubble_pcm_data = _load_mp3_pcm(BUBBLE_POP_PATH)
 
     pcm = process_audio(sound_events, frame, bubble_pcm=bubble_pcm_data)
+
+    # Mezclar pitazo al inicio del juego
+    if os.path.exists(WHISTLE_PATH):
+        print("Mezclando pitazo inicial...")
+        whistle_pcm_data = _load_mp3_pcm(WHISTLE_PATH)
+        if len(whistle_pcm_data) > 0:
+            buf_f = pcm.astype(np.float64)
+            w_pos = int(INTRO_FRAMES * SAMPLE_RATE / FPS)
+            w_end = min(w_pos + len(whistle_pcm_data), len(buf_f))
+            buf_f[w_pos:w_end] += whistle_pcm_data[:w_end - w_pos]
+            peak = np.max(np.abs(buf_f))
+            if peak > 0:
+                buf_f = buf_f / peak * 0.90 * 32767
+            pcm = buf_f.astype(np.int16)
 
     # Mezclar bet-365 en el frame del ganador
     if os.path.exists(BET365_PATH) and winner_frame is not None:
