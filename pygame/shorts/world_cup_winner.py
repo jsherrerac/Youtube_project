@@ -137,6 +137,7 @@ COUNTRIES_COLORS = {
     "Algeria":      (0,  150,   60),
     "Austria":      (200,  20,   20),
     "Jordan":       (200,  30,   30),
+    "Paraguay":     (213,  43,   48),
 }
 
 FLAG_CODES = {
@@ -153,7 +154,7 @@ FLAG_CODES = {
     # Mundial 2026 — nuevos
     "Ghana":        "gh", "Panama":       "pa", "DR Congo":     "cd",
     "Uzbekistan":   "uz", "Algeria":      "dz", "Austria":      "at",
-    "Jordan":       "jo",
+    "Jordan":       "jo", "Paraguay":     "py",
 }
 
 
