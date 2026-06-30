@@ -14,6 +14,12 @@ DIAMETER      = PURPLE    # diámetro
 HIGHLIGHT     = YELLOW    # ángulo focal · énfasis · resultado
 WAVE          = BLUE      # onda senoidal — mismo color que OPPOSITE (misma cantidad física)
 
+# ── Familia Monte Carlo / probabilidad (aditivo, no toca lo de arriba) ────────
+MC_INSIDE   = "#22D3EE"   # punto DENTRO del cuarto de círculo — cian
+MC_OUTSIDE  = "#FF6B5C"   # punto FUERA — coral
+MC_BORDER   = WHITE       # borde del cuadrado y del cuarto de círculo
+MC_PI       = HIGHLIGHT   # valor de π y línea de referencia — amarillo/dorado del canal
+
 PALETTE: dict = {
     "hypotenuse":    HYPOTENUSE,
     "opposite":      OPPOSITE,
@@ -22,6 +28,9 @@ PALETTE: dict = {
     "diameter":      DIAMETER,
     "highlight":     HIGHLIGHT,
     "wave":          WAVE,
+    "mc_inside":     MC_INSIDE,
+    "mc_outside":    MC_OUTSIDE,
+    "mc_pi":         MC_PI,
 }
 
 # ── Stroke widths (unidades Manim) ───────────────────────────────────────────

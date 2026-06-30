@@ -1,21 +1,31 @@
-# Videos y renders (pesados)
-manim/media/
+# ─── Renders y media generada (pesados) ───
+media/
+**/media/
+manim/video_2/
+**/output/
 *.mp4
+
+# ─── Audio (efectos de sonido y audio generado) ───
 *.mp3
 *.wav
+*.aac
 
-# Cache de Python
+# ─── Cache de Manim ───
+.cache/
+**/partial_movie_files/
+**/partial/
+
+# ─── Cache de Python ───
 __pycache__/
 *.pyc
 *.pyo
 
-# Cache de Manim
-.cache/
-
-# Entornos virtuales
+# ─── Entornos virtuales ───
 venv/
+.venv/
 .env/
+env/
 
-# Archivos de sistema
+# ─── Sistema ───
 .DS_Store
 Thumbs.db

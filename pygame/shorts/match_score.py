@@ -19,6 +19,8 @@ TEAM_TOP    = "NED"   # defiende el hueco de ARRIBA   ← CAMBIAR AQUÍ
 TEAM_BOTTOM = "MAR"   # defiende el hueco de ABAJO    ← CAMBIAR AQUÍ
 RANDOM_SEED = 22      # int → resultado fijo | None → distinto cada vez
 
+HOOK_TEXT   = "NO REFEREE. ONLY PHYSICS."   # gancho conceptual del inicio
+
 # ═══════════════════════════════════════════════════════════════════════════
 
 import os
@@ -108,6 +110,12 @@ MATCH_SECONDS = 16
 MATCH_FRAMES  = MATCH_SECONDS * FPS        # 960 frames de juego
 FINAL_FRAMES  = int(FPS * 2.4)             # pantalla final ~2.4 s
 KICKOFF_FRAME = 0
+
+# Hook de texto inicial: aparece ~0.3s, se mantiene ~1.5s, fade out
+HOOK_IN_FRAME = int(FPS * 0.3)            # entra a ~0.3 s
+HOOK_HOLD     = int(FPS * 1.5)            # se mantiene ~1.5 s
+HOOK_FADE     = int(FPS * 0.5)            # fade out de ~0.5 s
+HOOK_Y        = 420                       # tercio superior, bajo el marcador, sobre el aro
 
 # Un solo hueco (portería compartida) que GIRA con la circunferencia.
 GAP_BASE_DEG = -90                          # arranca arriba (y crece hacia abajo)
@@ -325,6 +333,57 @@ def draw_scoreboard(surf, fonts, ct, cb, st, sb, minute, pulse_top, pulse_bot):
     surf.blit(mt, mt.get_rect(centerx=WIDTH // 2, centery=170))
 
 
+def render_hook_surface(font, text, ow=5):
+    """Texto con sombra suave + contorno negro continuo y grueso + relleno blanco."""
+    base   = font.render(text, True, (255, 255, 255))
+    ol     = font.render(text, True, (0, 0, 0))
+    w, h   = base.get_size()
+    pad    = ow + 10
+    surf   = pygame.Surface((w + 2 * pad, h + 2 * pad), pygame.SRCALPHA)
+    ox, oy = pad, pad
+
+    # sombra desplazada
+    shadow = font.render(text, True, (0, 0, 0))
+    shadow.set_alpha(150)
+    surf.blit(shadow, (ox + 5, oy + 8))
+
+    # contorno continuo: anillo de blits a radio ow (y un radio interior)
+    offsets = set()
+    for k in range(24):
+        a = 2 * math.pi * k / 24
+        offsets.add((round(ow * math.cos(a)),       round(ow * math.sin(a))))
+        offsets.add((round(ow * 0.6 * math.cos(a)), round(ow * 0.6 * math.sin(a))))
+    for dx, dy in offsets:
+        surf.blit(ol, (ox + dx, oy + dy))
+
+    surf.blit(base, (ox, oy))
+    return surf
+
+
+def draw_hook(surf, fonts, frame):
+    """Texto-gancho del inicio: aparece ~0.3s, se mantiene ~1.5s y hace fade out."""
+    fade_in = FPS * 0.15
+    if frame < HOOK_IN_FRAME - fade_in or frame >= HOOK_IN_FRAME + HOOK_HOLD + HOOK_FADE:
+        return
+    if frame < HOOK_IN_FRAME:
+        alpha = int(255 * (frame - (HOOK_IN_FRAME - fade_in)) / fade_in)
+    elif frame < HOOK_IN_FRAME + HOOK_HOLD:
+        alpha = 255
+    else:
+        t = (frame - (HOOK_IN_FRAME + HOOK_HOLD)) / HOOK_FADE
+        alpha = int(255 * (1.0 - t))
+    alpha = max(0, min(255, alpha))
+
+    txt   = render_hook_surface(fonts['hook'], HOOK_TEXT)
+    max_w = WIDTH - 90                                    # margen lateral
+    if txt.get_width() > max_w:
+        s   = max_w / txt.get_width()
+        txt = pygame.transform.smoothscale(
+            txt, (int(txt.get_width() * s), int(txt.get_height() * s)))
+    txt.set_alpha(alpha)
+    surf.blit(txt, txt.get_rect(centerx=WIDTH // 2, centery=HOOK_Y))
+
+
 def draw_final(surf, fonts, ct, cb, st, sb, timer):
     progress = 1.0 - timer / FINAL_FRAMES
     alpha    = min(255, int(progress * 4 * 255))
@@ -433,6 +492,7 @@ def main():
         'big':         pygame.font.SysFont("Arial", 92, bold=True),
         'med':         pygame.font.SysFont("Arial", 64, bold=True),
         'final_score': pygame.font.SysFont("Arial", 150, bold=True),
+        'hook':        pygame.font.SysFont("impact,anton,arialblack", 92),
     }
 
     scale  = 0.22 if args.record else 0.36
@@ -484,6 +544,7 @@ def main():
     pulse_t = 0
     pulse_b = 0
     goal_flash = 0
+    goal_cooldown = 0      # frames en que el hueco no cuenta gol (anti doble gol)
     flash_pos  = np.array([0.0, 0.0])
     flash_col  = (255, 255, 255)
 
@@ -498,8 +559,9 @@ def main():
 
     clock = pygame.time.Clock()
 
-    def step_ball(pos, vel, r, rot):
+    def step_ball(pos, vel, r, rot, allow_goal=True):
         """Mueve una pelota con contención en el aro (el hueco no rebota).
+        Si allow_goal es False el hueco actúa como pared (evita doble gol).
         Devuelve (pos, vel, gol_bool, rebote_pared_bool)."""
         sub = 2
         bounced = False
@@ -508,9 +570,10 @@ def main():
             delta = pos - ARENA_CENTER
             d = float(np.linalg.norm(delta))
             ang = math.atan2(float(delta[1]), float(delta[0]))
-            if d > ARENA_RADIUS + r and in_gap(ang, rot):
+            gap = in_gap(ang, rot)
+            if allow_goal and gap and d > ARENA_RADIUS + r:
                 return pos, vel, True, bounced             # ¡GOL!
-            if d + r >= ARENA_RADIUS and not in_gap(ang, rot):
+            if d + r >= ARENA_RADIUS and (not gap or not allow_goal):
                 n = delta / d if d > 1e-6 else np.array([0.0, -1.0])
                 if float(np.dot(vel, n)) > 0:
                     vel -= 2 * float(np.dot(vel, n)) * n
@@ -521,7 +584,7 @@ def main():
         return pos, vel, False, bounced
 
     def register_goal(scorer_top: bool, gpos):
-        nonlocal score_t, score_b, pulse_t, pulse_b, goal_flash, flash_pos, flash_col
+        nonlocal score_t, score_b, pulse_t, pulse_b, goal_flash, goal_cooldown, flash_pos, flash_col
         country = country_t if scorer_top else country_b
         col     = COUNTRIES_COLORS[country]
         if scorer_top:
@@ -532,6 +595,7 @@ def main():
         all_particles.extend(spawn_explosion(gpos, col, BALL_RADIUS))
         sound_events.append((frame, 'goal', None))
         goal_flash = 14
+        goal_cooldown = int(FPS * 0.4)     # cierra el hueco un instante tras anotar
         flash_pos  = gpos.copy()
         flash_col  = col
 
@@ -546,6 +610,7 @@ def main():
         if pulse_t > 0: pulse_t -= 1
         if pulse_b > 0: pulse_b -= 1
         if goal_flash > 0: goal_flash -= 1
+        if goal_cooldown > 0: goal_cooldown -= 1
 
         minute = min(90, int(frame / MATCH_FRAMES * 90))
 
@@ -559,7 +624,7 @@ def main():
                 sound_events.append((frame, 'bong', 98.0))
 
             # Pelota de COL: si sale por el hueco, anota COL
-            pos_t, vel_t, goal_t, bounce_t = step_ball(pos_t, vel_t, BALL_RADIUS, rotation)
+            pos_t, vel_t, goal_t, bounce_t = step_ball(pos_t, vel_t, BALL_RADIUS, rotation, goal_cooldown == 0)
             if goal_t:
                 register_goal(scorer_top=True, gpos=pos_t.copy())
                 pos_t, vel_t = spawn_ball('top')
@@ -568,7 +633,7 @@ def main():
                 note_idx += 1
 
             # Pelota de POR: si sale por el hueco, anota POR
-            pos_b, vel_b, goal_b, bounce_b = step_ball(pos_b, vel_b, BALL_RADIUS, rotation)
+            pos_b, vel_b, goal_b, bounce_b = step_ball(pos_b, vel_b, BALL_RADIUS, rotation, goal_cooldown == 0)
             if goal_b:
                 register_goal(scorer_top=False, gpos=pos_b.copy())
                 pos_b, vel_b = spawn_ball('bottom')
@@ -624,6 +689,8 @@ def main():
 
             draw_scoreboard(surface, fonts, country_t, country_b,
                             score_t, score_b, minute, pulse_t, pulse_b)
+
+            draw_hook(surface, fonts, frame)
 
         push(surface)
         scaled = pygame.transform.scale(surface, screen.get_size())
