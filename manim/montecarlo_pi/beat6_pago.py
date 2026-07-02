@@ -10,27 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 from manim import *
 from lib import (
-    set_background, MonteCarloBoard, MC_INSIDE, MC_OUTSIDE, MC_BORDER, MC_PI,
-    FONT_TITLE, FONT_FORMULA,
+    set_background, MonteCarloBoard, ArbitraryShape,
+    MC_INSIDE, MC_OUTSIDE, MC_BORDER, MC_PI, FONT_TITLE, FONT_FORMULA,
 )
 
 np.random.seed(99)
-
-
-def _point_in_polygon(pts, poly):
-    """Ray casting vectorizado: bool por punto (pts: (n,2), poly: (m,2))."""
-    x, y = pts[:, 0], pts[:, 1]
-    inside = np.zeros(len(pts), dtype=bool)
-    m = len(poly)
-    j = m - 1
-    for i in range(m):
-        xi, yi = poly[i]
-        xj, yj = poly[j]
-        cond = ((yi > y) != (yj > y)) & (
-            x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi)
-        inside ^= cond
-        j = i
-    return inside
 
 
 class Beat6Pago(Scene):
@@ -66,27 +50,53 @@ class Beat6Pago(Scene):
         self.wait(1.5)
         self.play(FadeOut(panels), FadeOut(arrows), run_time=0.8)
 
-        # ── Otras aplicaciones: forma irregular medida con puntos ─────────────
+        # ── Otras aplicaciones: ESTIMACIÓN EN VIVO del área de un blob ─────────
         caption = Text("la misma idea mide cualquier forma", color=MC_BORDER,
                        font_size=28).to_edge(UP, buff=0.7)
-        # Blob irregular.
-        theta = np.linspace(0, TAU, 11, endpoint=False)
-        radii = 1.6 + 0.7 * rng.uniform(0.4, 1.0, size=len(theta))
-        verts = np.c_[radii * np.cos(theta), radii * np.sin(theta)]
-        blob = Polygon(*[[vx, vy, 0] for vx, vy in verts],
-                       color=MC_BORDER, stroke_width=2.5)
-        self.play(FadeIn(caption), Create(blob), run_time=1.5)
+        # Blob sin fórmula de área conocida (semilla fija → reproducible).
+        blob = ArbitraryShape(n_lobes=9, base_r=1.9, jitter=0.7,
+                              rng=np.random.default_rng(99)).shift(LEFT * 2.6)
+        # Bounding box de muestreo (rectángulo punteado tenue alrededor del blob).
+        x0, x1, y0, y1 = blob.bbox()
+        box = DashedVMobject(Rectangle(width=x1 - x0, height=y1 - y0,
+                             color=MC_BORDER, stroke_width=1.5).move_to(
+                             [(x0 + x1) / 2, (y0 + y1) / 2, 0]), num_dashes=48)
+        self.play(FadeIn(caption), Create(blob), FadeIn(box), run_time=1.5)
 
-        # Nube de puntos clasificados dentro/fuera del blob.
-        sample = rng.uniform(-2.4, 2.4, size=(400, 2))
-        ins = _point_in_polygon(sample, verts)
-        cloud = VGroup(*[
-            Dot([x, y, 0], radius=0.03, color=MC_INSIDE if i else MC_OUTSIDE)
+        # Muestreo uniforme dentro del bbox; dentro del blob → cian, fuera → coral.
+        N = 2000
+        sample = np.c_[rng.uniform(x0, x1, N), rng.uniform(y0, y1, N)]
+        ins = blob.contains(sample)
+        box_area = (x1 - x0) * (y1 - y0)
+
+        # Número de área en vivo (dorado), ligado a un ValueTracker de conteo.
+        seen_tr = ValueTracker(0)
+        def _area_label():
+            k = int(seen_tr.get_value())
+            frac = ins[:k].mean() if k > 0 else 0.0
+            return Text(f"área ≈ {box_area * frac:.2f}", color=MC_PI,
+                        font_size=FONT_FORMULA).to_edge(RIGHT, buff=1.2).shift(UP * 0.5)
+        area_label = always_redraw(_area_label)
+        real_lbl = Text(f"(real {blob.area():.2f})", color=MC_BORDER,
+                        font_size=24).to_edge(RIGHT, buff=1.2).shift(DOWN * 0.3)
+        self.add(area_label)
+
+        # Lluvia en tandas: la nube llena el bbox y el número se estabiliza.
+        dots = VGroup(*[
+            Dot([x, y, 0], radius=0.025, color=MC_INSIDE if i else MC_OUTSIDE)
             for (x, y), i in zip(sample, ins)
         ])
-        self.play(FadeIn(cloud, lag_ratio=0.0), run_time=1.2)
+        n_batches = 10
+        step = N // n_batches
+        for b in range(n_batches):
+            lo, hi = b * step, (b + 1) * step
+            self.play(FadeIn(dots[lo:hi], lag_ratio=0.0),
+                      seen_tr.animate.set_value(hi),
+                      run_time=0.35, rate_func=linear)
+        self.play(FadeIn(real_lbl), run_time=0.6)
         self.wait(1.5)
-        self.play(FadeOut(blob), FadeOut(cloud), FadeOut(caption), run_time=0.8)
+        self.play(FadeOut(VGroup(blob, box, dots, caption, area_label, real_lbl)),
+                  run_time=0.8)
 
         # ── Placeholder para clip de Pygame (~5s) ─────────────────────────────
         # TODO(edición): reemplazar este rectángulo por un clip MP4 de la

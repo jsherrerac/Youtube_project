@@ -15,9 +15,9 @@ Uso:
 # ██  CONFIGURACIÓN DEL PARTIDO — editar solo este bloque para cada juego  ██
 # ═══════════════════════════════════════════════════════════════════════════
 
-TEAM_TOP    = "NED"   # defiende el hueco de ARRIBA   ← CAMBIAR AQUÍ
-TEAM_BOTTOM = "MAR"   # defiende el hueco de ABAJO    ← CAMBIAR AQUÍ
-RANDOM_SEED = 22      # int → resultado fijo | None → distinto cada vez
+TEAM_TOP    = "SUI"   # defiende el hueco de ARRIBA   ← CAMBIAR AQUÍ
+TEAM_BOTTOM = "ALG"   # defiende el hueco de ABAJO    ← CAMBIAR AQUÍ
+RANDOM_SEED = 9  # int → resultado fijo | None → distinto cada vez
 
 HOOK_TEXT   = "NO REFEREE. ONLY PHYSICS."   # gancho conceptual del inicio
 
@@ -90,7 +90,11 @@ TEAM_TO_COUNTRY = {
     "IRN": "Iran",      "NZL": "New Zealand",
     "GHA": "Ghana",     "PAN": "Panama",         "COD": "DR Congo",
     "UZB": "Uzbekistan","ALG": "Algeria",        "AUT": "Austria",
+    "ECU": "Ecuador",   "MEX": "Mexico",
     "JOR": "Jordan",    "PAR": "Paraguay",
+    "AUS": "Australia", "CAN": "Canada",         "KOR": "South Korea",
+    "RSA": "South Africa", "SWE": "Sweden",      "SUI": "Switzerland",
+    "CIV": "Ivory Coast",  "BIH": "Bosnia and Herzegovina",
 }
 
 
@@ -125,8 +129,8 @@ GAP_HALF     = math.radians(GAP_HALF_DEG)
 ROT_OMEGA    = 2 * math.pi / (FPS * 5)      # 1 vuelta cada 7 s
 
 BALL_RADIUS  = 40
-BALL_SPEED0  = 800.0
-SPEED_GAIN   = 1.012      # subida muy leve por rebote
+BALL_SPEED0  = 900.0
+SPEED_GAIN   = 1.03      # subida muy leve por rebote
 MAX_SPEED    = 1500.0
 
 GRAVITY   = 0.0            # sin gravedad: rebote puro dentro del aro

@@ -138,6 +138,16 @@ COUNTRIES_COLORS = {
     "Austria":      (200,  20,   20),
     "Jordan":       (200,  30,   30),
     "Paraguay":     (213,  43,   48),
+    "Mexico":       (0,  104,   71),
+    "Ecuador":      (255, 221,    0),
+    "Australia":    (0,   40,  140),
+    "Canada":       (215,  40,   40),
+    "South Korea":  (0,   71,  160),
+    "South Africa": (0,  122,   77),
+    "Sweden":       (0,  106,  167),
+    "Switzerland":  (213,  43,   30),
+    "Ivory Coast":  (255, 130,    0),
+    "Bosnia and Herzegovina": (0, 40, 140),
 }
 
 FLAG_CODES = {
@@ -155,6 +165,10 @@ FLAG_CODES = {
     "Ghana":        "gh", "Panama":       "pa", "DR Congo":     "cd",
     "Uzbekistan":   "uz", "Algeria":      "dz", "Austria":      "at",
     "Jordan":       "jo", "Paraguay":     "py",
+    "Mexico":       "mx", "Ecuador":      "ec", "Australia":    "au",
+    "Canada":       "ca", "South Korea":  "kr", "South Africa": "za",
+    "Sweden":       "se", "Switzerland":  "ch", "Ivory Coast":  "ci",
+    "Bosnia and Herzegovina": "ba",
 }
 
 

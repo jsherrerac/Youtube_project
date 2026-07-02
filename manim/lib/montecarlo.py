@@ -16,7 +16,7 @@ Componentes:
 import numpy as np
 from manim import (
     VGroup, Square, Arc, Dot, Text, Axes, DashedLine,
-    VMobject, always_redraw, PI, ORIGIN,
+    VMobject, always_redraw, PI, TAU, ORIGIN,
 )
 from .theme import (
     MC_INSIDE, MC_OUTSIDE, MC_BORDER, MC_PI,
@@ -56,11 +56,15 @@ class MonteCarloBoard(VGroup):
         sx, sy = {
             "DL": (-1, -1), "DR": (1, -1), "UL": (-1, 1), "UR": (1, 1),
         }[corner]
-        # Esquina física donde se centra el cuarto de círculo:
-        self._origin_pt = self._center + np.array([sx * half, sy * half, 0.0])
-        # El eje x-unidad y y-unidad apuntan hacia el interior del cuadrado:
+        # Dirección (constante Manim) de la esquina-origen dentro del cuadrado y
+        # ejes-unidad apuntando hacia el interior. point() los reusa SIEMPRE.
+        self._corner_dir = np.array([sx, sy, 0.0])
         self._ux = np.array([-sx, 0.0, 0.0])
         self._uy = np.array([0.0, -sy, 0.0])
+
+        # Esquina física inicial (solo para construir el arco; luego point()
+        # la relee del cuadrado vivo, así sobrevive a shift()/to_edge()/scale()).
+        origin_pt = self._center + np.array([sx * half, sy * half, 0.0])
 
         # Cuadrado blanco.
         self.square = Square(side_length=self.side, color=MC_BORDER,
@@ -71,14 +75,24 @@ class MonteCarloBoard(VGroup):
         start_angle = {"DL": 0.0, "DR": PI / 2, "UR": PI, "UL": 3 * PI / 2}[corner]
         self.quarter = Arc(
             radius=self.side, start_angle=start_angle, angle=PI / 2,
-            arc_center=self._origin_pt, color=MC_BORDER, stroke_width=STROKE_THICK,
+            arc_center=origin_pt, color=MC_BORDER, stroke_width=STROKE_THICK,
         )
 
         self.add(self.square, self.quarter)
 
+    # ── ÚNICA AUTORIDAD DE COORDENADAS ───────────────────────────────────────
+    # Todo (puntos, segmentos, sector sombreado) DEBE pasar por point()/radius().
+    # Ambos se derivan del cuadrado VIVO, no de valores cacheados, para que
+    # cualquier shift/to_edge/scale del board mantenga puntos, arco y sombreado
+    # exactamente dentro del cuadrado.
     def point(self, x: float, y: float) -> np.ndarray:
-        """Coords-unidad (x,y ∈ [0,1]) → punto de escena."""
-        return self._origin_pt + self.side * (x * self._ux + y * self._uy)
+        """Coords-unidad (x,y ∈ [0,1]) → punto de escena (relee el cuadrado)."""
+        origin_pt = self.square.get_corner(self._corner_dir)
+        return origin_pt + self.radius() * (x * self._ux + y * self._uy)
+
+    def radius(self) -> float:
+        """Lado del cuadrado = radio del cuarto de círculo (lee tamaño vivo)."""
+        return self.square.get_width()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -165,3 +179,87 @@ class ConvergencePlot(VGroup):
         if pts:
             curve.set_points_as_corners(pts)
         return curve
+
+    def multi_curve_from(self, ns, series, colors, stroke_width=STROKE_DEFAULT) -> VGroup:
+        """
+        Varias series sobre los MISMOS ejes (p. ej. distintas semillas).
+        `series` y `colors` son listas paralelas. No rompe curve_from (lo reusa).
+        Devuelve un VGroup de polilíneas (no se añade solo).
+        """
+        return VGroup(*[
+            self.curve_from(ns, est, color=col, stroke_width=stroke_width)
+            for est, col in zip(series, colors)
+        ])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Forma irregular sin fórmula de área (para Monte Carlo "de cualquier forma")
+# ──────────────────────────────────────────────────────────────────────────────
+def _point_in_polygon(pts, poly):
+    """Ray casting vectorizado: bool por punto. pts:(n,2) en coords de escena;
+    poly:(m,2) vértices del contorno en coords de escena."""
+    x, y = pts[:, 0], pts[:, 1]
+    inside = np.zeros(len(pts), dtype=bool)
+    m = len(poly)
+    j = m - 1
+    for i in range(m):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        cond = ((yi > y) != (yj > y)) & (
+            x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi)
+        inside ^= cond
+        j = i
+    return inside
+
+
+class ArbitraryShape(VMobject):
+    """
+    Blob cerrado y suave (bezier) SIN fórmula de área conocida, para demostrar
+    que Monte Carlo mide cualquier forma. La frontera de clasificación es la
+    MISMA curva que se ve: se muestrea el path vivo, así sobrevive a shift/scale.
+
+    Parámetros
+    ----------
+    n_lobes  : nº de anclas radiales (default 9).
+    base_r   : radio medio en unidades Manim (default 1.8).
+    jitter   : amplitud de irregularidad (default 0.7).
+    rng      : np.random.Generator (semilla fija para reproducibilidad).
+    samples  : nº de muestras del contorno para área/clasificación (default 240).
+
+    Métodos
+    -------
+    contains(pts) : bool por punto (pts en coords de escena).
+    area()        : área real (shoelace sobre el contorno vivo).
+    bbox()        : (x_min, x_max, y_min, y_max) en escena.
+    """
+
+    def __init__(self, n_lobes: int = 9, base_r: float = 1.8, jitter: float = 0.7,
+                 rng=None, samples: int = 240, color=MC_BORDER,
+                 stroke_width=STROKE_DEFAULT, **kwargs):
+        super().__init__(color=color, stroke_width=stroke_width, **kwargs)
+        if rng is None:
+            rng = np.random.default_rng(0)
+        self._samples = int(samples)
+        theta = np.linspace(0, TAU, n_lobes, endpoint=False)
+        radii = base_r + jitter * rng.uniform(-1.0, 1.0, size=n_lobes)
+        anchors = [np.array([r * np.cos(t), r * np.sin(t), 0.0])
+                   for r, t in zip(radii, theta)]
+        # Curva cerrada y suave a través de las anclas (repetir la 1ª cierra).
+        self.set_points_smoothly(anchors + [anchors[0]])
+
+    def _current_poly(self) -> np.ndarray:
+        """Muestrea el contorno VIVO → polígono fino (n,2) en coords de escena."""
+        ts = np.linspace(0.0, 1.0, self._samples, endpoint=False)
+        return np.array([self.point_from_proportion(t)[:2] for t in ts])
+
+    def contains(self, pts) -> np.ndarray:
+        return _point_in_polygon(np.asarray(pts)[:, :2], self._current_poly())
+
+    def area(self) -> float:
+        poly = self._current_poly()
+        x, y = poly[:, 0], poly[:, 1]
+        return 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+    def bbox(self):
+        return (self.get_left()[0], self.get_right()[0],
+                self.get_bottom()[1], self.get_top()[1])

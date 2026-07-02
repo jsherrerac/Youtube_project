@@ -32,8 +32,10 @@ class Beat3Razon(Scene):
         self.play(FadeIn(board), run_time=0.8)
 
         # ── Sombreado de áreas ────────────────────────────────────────────────
+        # Sector con MISMO centro (esquina) y MISMO radio que el cuadrado/arco
+        # → queda contenido exacto dentro del cuadrado (autoridad: board).
         sq_fill = board.square.copy().set_fill(MC_BORDER, opacity=0.10).set_stroke(width=0)
-        sector = Sector(radius=board.side, start_angle=0, angle=PI / 2,
+        sector = Sector(radius=board.radius(), start_angle=0, angle=PI / 2,
                         arc_center=corner).set_fill(MC_INSIDE, opacity=0.35).set_stroke(width=0)
         self.play(FadeIn(sq_fill), run_time=0.6)
         self.play(FadeIn(sector), run_time=1.0)

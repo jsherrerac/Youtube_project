@@ -14,7 +14,7 @@ from .triangle       import ColorCodedRightTriangle
 from .unit_circle_wave import UnitCircleWave
 from .live_formula   import LiveSineFormula
 from .montecarlo     import (
-    MonteCarloBoard, sample_points, pi_counter, ConvergencePlot,
+    MonteCarloBoard, sample_points, pi_counter, ConvergencePlot, ArbitraryShape,
 )
 
 __all__ = [
@@ -31,4 +31,5 @@ __all__ = [
     "LiveSineFormula",
     # Monte Carlo
     "MonteCarloBoard", "sample_points", "pi_counter", "ConvergencePlot",
+    "ArbitraryShape",
 ]

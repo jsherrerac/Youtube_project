@@ -21,7 +21,7 @@ from lib import (
 np.random.seed(42)
 
 N_HIDDEN  = 60000   # para contador y curva (solo cálculo, no se dibuja)
-N_VISIBLE = 3000    # puntos efectivamente renderizados (cap de rendimiento)
+N_VISIBLE = 5000    # puntos efectivamente renderizados (lluvia final más densa)
 N_BATCHES = 15      # tandas de la lluvia
 
 
@@ -51,10 +51,11 @@ class Beat5Convergencia(Scene):
         ])
 
         # ── Número de π grande y dorado (arriba-derecha) ──────────────────────
+        # z_index alto: el héroe SIEMPRE por encima de la nube de puntos.
         est_tr = ValueTracker(0.0)
         pi_num = always_redraw(lambda: Text(
-            f"{est_tr.get_value():.5f}", color=MC_PI, font_size=72))
-        pi_lbl = Text("π ≈", color=MC_PI, font_size=72)
+            f"{est_tr.get_value():.5f}", color=MC_PI, font_size=72).set_z_index(10))
+        pi_lbl = Text("π ≈", color=MC_PI, font_size=72).set_z_index(10)
         head = VGroup(pi_lbl, pi_num).arrange(RIGHT, buff=0.25).to_edge(UP, buff=0.7).shift(RIGHT * 1.5)
         self.add(pi_num)
         self.play(FadeIn(pi_lbl), run_time=0.4)
@@ -80,13 +81,15 @@ class Beat5Convergencia(Scene):
                 FadeIn(dots[lo:hi], lag_ratio=0.0),
                 est_tr.animate.set_value(estimates[n_now - 1]),
                 Transform(curve, new_curve),
-                run_time=0.45, rate_func=linear,
+                run_time=0.6, rate_func=linear,
             )
 
-        # ── Cierre: el número se asienta, la curva besa la línea de π ─────────
-        self.play(est_tr.animate.set_value(final_est), run_time=0.8)
-        target = Text("3.14159…", color=MC_PI, font_size=32).next_to(head, DOWN, buff=0.4)
+        # ── Cierre: el número se asienta LENTO (respira), la curva besa π ──────
+        self.wait(0.8)
+        self.play(est_tr.animate.set_value(final_est), run_time=5.5, rate_func=smooth)
+        target = Text("3.14159…", color=MC_PI, font_size=32).next_to(
+            head, DOWN, buff=0.4).set_z_index(10)  # referencia, también sobre la nube
         self.play(FadeIn(target), Flash(plot.pi_line.get_end(), color=MC_PI), run_time=1.0)
 
-        # Respira sin texto nuevo.
+        # El número queda CLAVADO y solo, sin texto nuevo.
         self.wait(3.0)
